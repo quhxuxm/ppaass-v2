@@ -1,0 +1,18 @@
+[package]
+name = "agent"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+path = "src/bin/entry.rs"
+name = "ppaass-v2-agent"
+
+[dependencies]
+anyhow = { workspace = true }
+derive_more = { workspace = true, features = ["full"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["chrono"] }
+chrono = { workspace = true }

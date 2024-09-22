@@ -1,0 +1,9 @@
+[package]
+name = "domain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+bytes = { workspace = true, features = ["serde"] }
+derive_more = { workspace = true, features = ["full"] }
