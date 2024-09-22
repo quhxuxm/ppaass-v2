@@ -1,23 +1,31 @@
 use crate::error::ServerError;
+use bytes::Bytes;
 use ppaass_v2_domain::message::PpaassMessagePacket;
 use tokio_util::bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder};
-pub struct AgentConnectionCodec {}
-
-impl AgentConnectionCodec {
-    pub fn new() -> Self {
-        Self {}
-    }
+enum AgentEdgeDecoderState {
+    Header,
+    Body(Bytes),
 }
-impl Decoder for AgentConnectionCodec {
+pub struct AgentEdgeDecoder {
+    state: AgentEdgeDecoderState,
+}
+
+impl Decoder for AgentEdgeDecoder {
     type Item = PpaassMessagePacket;
     type Error = ServerError;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        match &self.state {
+            AgentEdgeDecoderState::Header => {}
+            AgentEdgeDecoderState::Body(body_bytes) => {}
+        }
         todo!()
     }
 }
 
-impl Encoder<PpaassMessagePacket> for AgentConnectionCodec {
+pub struct AgentEdgeEncoder {}
+
+impl Encoder<PpaassMessagePacket> for AgentEdgeEncoder {
     type Error = ServerError;
     fn encode(&mut self, item: PpaassMessagePacket, dst: &mut BytesMut) -> Result<(), Self::Error> {
         todo!()

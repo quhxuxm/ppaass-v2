@@ -9,7 +9,7 @@ pub enum PpaassMessagePayloadEncryption {
 #[derive(Serialize, Deserialize, Debug, Constructor)]
 pub struct PpaassMessagePayload {
     encryption: PpaassMessagePayloadEncryption,
-    encrypted_business_data: Bytes,
+    business_data: Bytes,
 }
 
 impl PpaassMessagePayload {
@@ -17,14 +17,15 @@ impl PpaassMessagePayload {
         &self.encryption
     }
 
-    pub fn encrypted_business_data(&self) -> &[u8] {
-        &self.encrypted_business_data
+    pub fn business_data(&self) -> &[u8] {
+        &self.business_data
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Constructor)]
 pub struct PpaassMessagePacket {
     message_id: String,
+    user_token: Bytes,
     payload: PpaassMessagePayload,
 }
 
@@ -35,5 +36,9 @@ impl PpaassMessagePacket {
 
     pub fn payload(&self) -> &PpaassMessagePayload {
         &self.payload
+    }
+
+    pub fn user_token(&self) -> &[u8] {
+        &self.user_token
     }
 }

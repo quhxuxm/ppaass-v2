@@ -25,3 +25,4 @@ clap = { workspace = true, features = ["derive"] }
 tokio-util = { workspace = true, features = ["codec"] }
 futures-util = { workspace = true, features = ["sink"] }
 bytes = { workspace = true }
+bincode = { workspace = true }
