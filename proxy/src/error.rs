@@ -7,4 +7,6 @@ pub enum ServerError {
     Lock(String),
     #[error("{0}")]
     Other(String),
+    #[error(transparent)]
+    BinCodeDeserialize(#[from] bincode::Error),
 }

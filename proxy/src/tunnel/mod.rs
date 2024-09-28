@@ -1,4 +1,4 @@
-use crate::codec::AgentConnectionCodec;
+use crate::codec::{AgentConnectionCodec, AgentEdgeCodec};
 use crate::error::ServerError;
 use crate::tunnel::tcp::TcpTunnel;
 use crate::tunnel::udp::UdpTunnel;
@@ -15,9 +15,9 @@ pub enum Tunnel {
 
 impl Tunnel {
     pub async fn detect(
-        mut agent_read: SplitStream<Framed<TcpStream, AgentConnectionCodec>>,
+        mut agent_read: SplitStream<Framed<TcpStream, AgentEdgeCodec>>,
     ) -> Result<Self, ServerError> {
-        let handshake = agent_read.next().await.ok_or(ServerError::Other(
+        let handshake_msg = agent_read.next().await.ok_or(ServerError::Other(
             "Nothing read from agent side".to_string(),
         ))??;
 

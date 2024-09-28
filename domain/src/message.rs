@@ -1,12 +1,12 @@
 use bytes::Bytes;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PpaassMessagePayloadEncryption {
     Aes(Bytes),
 }
 
-#[derive(Serialize, Deserialize, Debug, Constructor)]
+#[derive(Serialize, Deserialize, Debug, Constructor, Clone)]
 pub struct PpaassMessagePayload {
     encryption: PpaassMessagePayloadEncryption,
     business_data: Bytes,
