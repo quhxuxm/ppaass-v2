@@ -5,3 +5,8 @@ edition = "2021"
 [lib]
 path = "src/lib.rs"
 [dependencies]
+serde = { workspace = true, features = ["derive"] }
+bytes = { workspace = true }
+bincode = { workspace = true }
+thiserror = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "display"] }
