@@ -9,6 +9,6 @@ pub enum DomainError {
     UnmatchedUnifiedAddressType(UnifiedAddress),
     #[error(transparent)]
     ParseUnifiedAddressToIpAddress(#[from] AddrParseError),
-    #[error(transparent)]
+    #[error("Failed to parse unified address to domain: {0:?}")]
     ParseUnifiedAddressToDomainAddress(String),
 }
