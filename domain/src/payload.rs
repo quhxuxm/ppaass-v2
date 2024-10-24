@@ -5,10 +5,19 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub enum EncryptionKey {
+    #[default]
+    Plain,
+    Aes(Bytes),
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone, Accessors, Builder)]
 pub struct KeyExchange {
+    #[access(get)]
     expire: DateTime<Utc>,
-    encryption_key: Bytes,
+    #[access(get)]
+    encryption_key: EncryptionKey,
 }
 
 impl TryFrom<Bytes> for KeyExchange {
@@ -27,13 +36,13 @@ impl TryFrom<KeyExchange> for Bytes {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Builder, Accessors)]
+#[derive(Deserialize, Serialize, Debug, Clone, Accessors, Builder)]
 pub struct TransferData {
     #[access(get)]
     src_address: UnifiedAddress,
     #[access(get)]
-    dest_address: UnifiedAddress,
-    #[access(get)]
+    dst_address: UnifiedAddress,
+    #[access(get(ty(&[u8])))]
     data: Bytes,
 }
 

@@ -18,15 +18,15 @@ const DEFAULT_PROXY_PUBLIC_KEY_PATH: &str = "ProxyPublicKey.pem";
 /// with user token
 pub trait RsaCryptoFetcher {
     /// Fetch the rsa crypto by user token
-    fn fetch(&self, user_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError>;
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError>;
 }
 
 impl<T> RsaCryptoFetcher for Arc<T>
 where
     T: RsaCryptoFetcher,
 {
-    fn fetch(&self, user_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
-        RsaCryptoFetcher::fetch(self.as_ref(), user_token)
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
+        RsaCryptoFetcher::fetch(self.as_ref(), auth_token)
     }
 }
 
@@ -34,8 +34,8 @@ impl<T> RsaCryptoFetcher for &T
 where
     T: RsaCryptoFetcher,
 {
-    fn fetch(&self, user_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
-        RsaCryptoFetcher::fetch(*self, user_token)
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
+        RsaCryptoFetcher::fetch(*self, auth_token)
     }
 }
 
@@ -43,8 +43,8 @@ impl<T> RsaCryptoFetcher for &mut T
 where
     T: RsaCryptoFetcher,
 {
-    fn fetch(&self, user_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
-        RsaCryptoFetcher::fetch(*self, user_token)
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
+        RsaCryptoFetcher::fetch(*self, auth_token)
     }
 }
 
@@ -94,18 +94,18 @@ impl RsaCrypto {
     }
 }
 
-pub fn generate_agent_key_pairs(base_dir: &str, user_token: &str) -> Result<(), CryptoError> {
-    let private_key_path = format!("{base_dir}/{user_token}/{DEFAULT_AGENT_PRIVATE_KEY_PATH}");
+pub fn generate_agent_key_pairs(base_dir: &str, auth_token: &str) -> Result<(), CryptoError> {
+    let private_key_path = format!("{base_dir}/{auth_token}/{DEFAULT_AGENT_PRIVATE_KEY_PATH}");
     let private_key_path = Path::new(private_key_path.as_str());
-    let public_key_path = format!("{base_dir}/{user_token}/{DEFAULT_AGENT_PUBLIC_KEY_PATH}");
+    let public_key_path = format!("{base_dir}/{auth_token}/{DEFAULT_AGENT_PUBLIC_KEY_PATH}");
     let public_key_path = Path::new(public_key_path.as_str());
     generate_rsa_key_pairs(private_key_path, public_key_path)
 }
 
-pub fn generate_proxy_key_pairs(base_dir: &str, user_token: &str) -> Result<(), CryptoError> {
-    let private_key_path = format!("{base_dir}/{user_token}/{DEFAULT_PROXY_PRIVATE_KEY_PATH}");
+pub fn generate_proxy_key_pairs(base_dir: &str, auth_token: &str) -> Result<(), CryptoError> {
+    let private_key_path = format!("{base_dir}/{auth_token}/{DEFAULT_PROXY_PRIVATE_KEY_PATH}");
     let private_key_path = Path::new(private_key_path.as_str());
-    let public_key_path = format!("{base_dir}/{user_token}/{DEFAULT_PROXY_PUBLIC_KEY_PATH}");
+    let public_key_path = format!("{base_dir}/{auth_token}/{DEFAULT_PROXY_PUBLIC_KEY_PATH}");
     let public_key_path = Path::new(public_key_path.as_str());
     generate_rsa_key_pairs(private_key_path, public_key_path)
 }
