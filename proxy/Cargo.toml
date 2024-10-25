@@ -14,8 +14,10 @@ path = "src/lib.rs"
 ppaass-domain={path = "../domain", package = "domain"}
 ppaass-codec = {path = "../codec", package = "codec"}
 ppaass-crypto = {path = "../crypto", package = "crypto"}
-tokio = {workspace = true}
 futures = {workspace = true}
 futures-util = {workspace = true}
 serde = { workspace = true, features = ["derive"] }
 toml = {workspace = true}
+accessory = { workspace = true }
+thiserror = {workspace = true}
+tokio = {workspace = true, features = ["rt-multi-thread", "net"]}
