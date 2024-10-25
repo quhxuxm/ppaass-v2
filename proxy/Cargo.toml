@@ -3,4 +3,19 @@ name = "proxy"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "ppaass-proxy"
+path = "src/bin/start.rs"
+
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
+ppaass-domain={path = "../domain", package = "domain"}
+ppaass-codec = {path = "../codec", package = "codec"}
+ppaass-crypto = {path = "../crypto", package = "crypto"}
+tokio = {workspace = true}
+futures = {workspace = true}
+futures-util = {workspace = true}
+serde = { workspace = true, features = ["derive"] }
+toml = {workspace = true}
