@@ -1,0 +1,22 @@
+### GET request to example server
+POST http://localhost/session/create
+Content-Type: application/json
+Accept: application/json
+
+{
+  "auth_token": "user1",
+  "agent_encryption": "Plain"
+}
+
+
+###
+GET http://localhost/session
+
+###
+GET http://localhost/session/1f347375-b513-4f58-bfc8-6315d3002680
+
+###
+GET http://localhost/session/not-exist
+
+###
+GET http://localhost/relay/fa0d4f4d-82e3-4286-b9e5-0cc82813d270/XFDFDDFDFDF

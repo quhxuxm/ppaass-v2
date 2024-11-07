@@ -1,5 +1,5 @@
 [workspace]
-members = ["agent", "codec", "crypto", "domain", "proxy"]
+members = ["agent", "crypto", "domain", "proxy"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -28,3 +28,8 @@ rsa = "0.9"
 rand = "0.8"
 flate2 = "1.0.34"
 futures = "0.3.31"
+uuid = "1.11.0"
+axum = "0.7.7"
+tokio-tungstenite = "0.24.0"
+hex = "0.4.3"
+base64 = "0.22.1"

@@ -38,7 +38,7 @@ impl TryFrom<String> for UnifiedAddress {
                 parts_num if parts_num > 2 => {
                     Err(DomainError::ParseUnifiedAddressToDomainAddress(value))
                 }
-                parts_num if parts_num == 2 => {
+                2 => {
                     let domain = domain_parts[0];
                     let port = domain_parts[1].parse::<u32>().map_err(|_| {
                         DomainError::ParseUnifiedAddressToDomainAddress(value.clone())

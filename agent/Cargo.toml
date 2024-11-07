@@ -3,4 +3,31 @@ name = "agent"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "ppaass-agent"
+path = "src/bin/start.rs"
+
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
+ppaass-domain = { path = "../domain", package = "domain" }
+ppaass-crypto = { path = "../crypto", package = "crypto" }
+futures = { workspace = true }
+futures-util = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true }
+accessory = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tracing", "parking_lot", "rt"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+tokio-util = { workspace = true, features = ["codec"] }
+bytes = { workspace = true }
+derive_builder = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["v4"] }
+tokio-tungstenite = { workspace = true }
+hex = { workspace = true }
