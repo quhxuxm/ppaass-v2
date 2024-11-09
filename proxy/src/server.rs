@@ -2,7 +2,7 @@ use crate::bo::config::Config;
 use crate::bo::event::ServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::crypto::ProxyRsaCryptoFetcher;
-use crate::error::ServerError;
+use crate::error::ProxyError;
 use crate::{handler, publish_server_event};
 use axum::routing::{get, post};
 use axum::Router;
@@ -12,12 +12,12 @@ use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver};
 use tracing::error;
-pub struct Server {
+pub struct ProxyServer {
     state: Arc<ServerState>,
 }
 
-impl Server {
-    pub fn new(config: Arc<Config>) -> Result<Self, ServerError> {
+impl ProxyServer {
+    pub fn new(config: Arc<Config>) -> Result<Self, ProxyError> {
         let mut server_state_builder = ServerStateBuilder::default();
         server_state_builder
             .config(config.clone())
@@ -28,7 +28,7 @@ impl Server {
         })
     }
 
-    async fn concrete_start_server(state: Arc<ServerState>) -> Result<(), ServerError> {
+    async fn concrete_start_server(state: Arc<ServerState>) -> Result<(), ProxyError> {
         let session_server_port = *state.config().port();
         let app = Router::new()
             .route("/session/create", post(handler::create_session))
@@ -48,7 +48,7 @@ impl Server {
         Ok(())
     }
 
-    pub async fn start(&self) -> Result<Receiver<ServerEvent>, ServerError> {
+    pub async fn start(&self) -> Result<Receiver<ServerEvent>, ProxyError> {
         let (server_event_tx, server_event_rx) = channel::<ServerEvent>(1024);
         {
             let server_state = self.state.clone();

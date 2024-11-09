@@ -2,7 +2,7 @@ use crate::bo::state::ServerState;
 use crate::destination::read::DestinationTransportRead;
 use crate::destination::write::DestinationTransportWrite;
 use crate::destination::DestinationTransport;
-use crate::error::ServerError;
+use crate::error::ProxyError;
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{Path, State, WebSocketUpgrade};
 use axum::response::Response;
@@ -147,7 +147,7 @@ pub async fn prepare_dest_transport(
 fn parse_relay_info(
     relay_info: String,
     agent_encryption: &Encryption,
-) -> Result<RelayInfo, ServerError> {
+) -> Result<RelayInfo, ProxyError> {
     let relay_info = hex::decode(relay_info)?;
     let relay_info = BASE64_STANDARD.decode(relay_info)?;
     let relay_info = match &agent_encryption {

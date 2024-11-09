@@ -1,6 +1,6 @@
 use crate::bo::session::SessionBuilder;
 use crate::bo::state::ServerState;
-use crate::error::ServerError;
+use crate::error::ProxyError;
 use axum::extract::{Path, State};
 use axum::Json;
 use ppaass_crypto::random_32_bytes;
@@ -14,14 +14,14 @@ use uuid::Uuid;
 pub async fn get_session(
     State(server_state): State<Arc<ServerState>>,
     Path(session_token): Path<String>,
-) -> Result<Json<GetSessionResponse>, ServerError> {
+) -> Result<Json<GetSessionResponse>, ProxyError> {
     let session_repository = server_state
         .session_repository()
         .lock()
-        .map_err(|_| ServerError::SessionRepositoryLock)?;
+        .map_err(|_| ProxyError::SessionRepositoryLock)?;
     let session = session_repository
         .get(&session_token)
-        .ok_or(ServerError::SessionNotExist(session_token.clone()))?;
+        .ok_or(ProxyError::SessionNotExist(session_token.clone()))?;
     let mut get_session_response_builder = GetSessionResponseBuilder::default();
     get_session_response_builder.session_token(session_token);
     get_session_response_builder.auth_token(session.auth_token().to_owned());
@@ -31,11 +31,11 @@ pub async fn get_session(
 
 pub async fn get_all_sessions(
     State(server_state): State<Arc<ServerState>>,
-) -> Result<Json<Vec<GetSessionResponse>>, ServerError> {
+) -> Result<Json<Vec<GetSessionResponse>>, ProxyError> {
     let session_repository = server_state
         .session_repository()
         .lock()
-        .map_err(|_| ServerError::SessionRepositoryLock)?;
+        .map_err(|_| ProxyError::SessionRepositoryLock)?;
     let result = session_repository
         .iter()
         .filter_map(|(k, v)| {
@@ -57,11 +57,11 @@ pub async fn get_all_sessions(
 pub async fn create_session(
     State(server_state): State<Arc<ServerState>>,
     Json(create_session_request): Json<CreateSessionRequest>,
-) -> Result<Json<CreateSessionResponse>, ServerError> {
+) -> Result<Json<CreateSessionResponse>, ProxyError> {
     let rsa_crypto_fetcher = server_state.rsa_crypto_fetcher();
     let rsa_crypto = rsa_crypto_fetcher
         .fetch(create_session_request.auth_token())?
-        .ok_or(ServerError::RsaCryptoNotExist(
+        .ok_or(ProxyError::RsaCryptoNotExist(
             create_session_request.auth_token().to_owned(),
         ))?;
     let session_token = Uuid::new_v4().to_string();
@@ -83,7 +83,7 @@ pub async fn create_session(
     let mut session_repository = server_state
         .session_repository()
         .lock()
-        .map_err(|_| ServerError::SessionRepositoryLock)?;
+        .map_err(|_| ProxyError::SessionRepositoryLock)?;
     session_repository.insert(session.session_token().to_owned(), session);
     let mut create_session_response_builder = CreateSessionResponseBuilder::default();
     create_session_response_builder

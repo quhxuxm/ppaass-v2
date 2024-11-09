@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use proxy::bo::command::CommandArgs;
 use proxy::bo::config::Config;
-use proxy::server::Server;
+use proxy::server::ProxyServer;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ pub fn main() -> Result<()> {
         .enable_all()
         .build()?;
     runtime.block_on(async {
-        let server = match Server::new(config) {
+        let server = match ProxyServer::new(config) {
             Ok(server) => server,
             Err(e) => {
                 error!("Failed to build server object: {}", e);

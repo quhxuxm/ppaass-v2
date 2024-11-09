@@ -9,7 +9,7 @@ use ppaass_domain::error::DomainError;
 use ppaass_domain::session::{CreateSessionResponseBuilderError, GetSessionResponseBuilderError};
 use thiserror::Error;
 #[derive(Debug, Error)]
-pub enum ServerError {
+pub enum ProxyError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Agent tcp connection exhausted")]
@@ -44,7 +44,7 @@ pub enum ServerError {
     Base64Decode(#[from] DecodeError),
 }
 
-impl IntoResponse for ServerError {
+impl IntoResponse for ProxyError {
     fn into_response(self) -> Response {
         match self {
             Self::SessionNotExist(session_token) => {
