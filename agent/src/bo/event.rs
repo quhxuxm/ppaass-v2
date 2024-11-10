@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum ProxyServerEvent {
+pub enum AgentServerEvent {
     ServerStartup,
     ServerStartFail,
     ServerTcpBind,

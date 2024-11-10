@@ -6,11 +6,11 @@ use std::fs::{read_dir, File};
 use std::path::Path;
 use std::sync::Arc;
 use tracing::error;
-pub struct ProxyRsaCryptoFetcher {
+pub struct AgentRsaCryptoFetcher {
     cache: Arc<HashMap<String, Arc<RsaCrypto>>>,
 }
 
-impl ProxyRsaCryptoFetcher {
+impl AgentRsaCryptoFetcher {
     pub fn new(config: Arc<Config>) -> Result<Self, CryptoError> {
         let mut cache = HashMap::new();
         let rsa_dir_path = config.rsa_dir();
@@ -52,7 +52,7 @@ impl ProxyRsaCryptoFetcher {
     }
 }
 
-impl RsaCryptoFetcher for ProxyRsaCryptoFetcher {
+impl RsaCryptoFetcher for AgentRsaCryptoFetcher {
     fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
         match self.cache.get(auth_token.as_ref()) {
             None => Ok(None),

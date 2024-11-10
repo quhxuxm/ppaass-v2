@@ -1,1 +1,8 @@
+port = 10090
+auth_token = "user1"
+worker_threads = 256
+proxy_read_timeout = 120000
+proxy_write_timeout = 120000
+client_read_timeout = 120000
+client_write_timeout = 120000
 rsa_dir = "resources/agent/rsa"

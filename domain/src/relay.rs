@@ -42,3 +42,11 @@ impl TryFrom<RelayInfo> for Bytes {
         Ok(result.into())
     }
 }
+
+impl TryFrom<RelayInfo> for Vec<u8> {
+    type Error = DomainError;
+    fn try_from(value: RelayInfo) -> Result<Self, Self::Error> {
+        let result = bincode::serialize(&value)?;
+        Ok(result)
+    }
+}

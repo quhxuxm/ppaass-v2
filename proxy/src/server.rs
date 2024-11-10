@@ -1,5 +1,5 @@
 use crate::bo::config::Config;
-use crate::bo::event::ServerEvent;
+use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::crypto::ProxyRsaCryptoFetcher;
 use crate::error::ProxyError;
@@ -48,20 +48,19 @@ impl ProxyServer {
         Ok(())
     }
 
-    pub async fn start(&self) -> Result<Receiver<ServerEvent>, ProxyError> {
-        let (server_event_tx, server_event_rx) = channel::<ServerEvent>(1024);
+    pub async fn start(&self) -> Result<Receiver<ProxyServerEvent>, ProxyError> {
+        let (server_event_tx, server_event_rx) = channel::<ProxyServerEvent>(1024);
         {
             let server_state = self.state.clone();
-
             let server_event_tx = server_event_tx.clone();
             tokio::spawn(async move {
                 if let Err(e) = Self::concrete_start_server(server_state).await {
-                    publish_server_event(server_event_tx, ServerEvent::ServerStartFail).await;
+                    publish_server_event(server_event_tx, ProxyServerEvent::ServerStartFail).await;
                     error!("Fail to start server: {e:?}")
                 }
             });
         }
-        publish_server_event(server_event_tx, ServerEvent::ServerStartup).await;
+        publish_server_event(server_event_tx, ProxyServerEvent::ServerStartup).await;
         Ok(server_event_rx)
     }
 }

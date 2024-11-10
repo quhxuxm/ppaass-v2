@@ -18,14 +18,14 @@ const DEFAULT_PROXY_PUBLIC_KEY_PATH: &str = "ProxyPublicKey.pem";
 /// with user token
 pub trait RsaCryptoFetcher {
     /// Fetch the rsa crypto by user token
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError>;
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError>;
 }
 
 impl<T> RsaCryptoFetcher for Arc<T>
 where
     T: RsaCryptoFetcher,
 {
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
         RsaCryptoFetcher::fetch(self.as_ref(), auth_token)
     }
 }
@@ -34,7 +34,7 @@ impl<T> RsaCryptoFetcher for &T
 where
     T: RsaCryptoFetcher,
 {
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
         RsaCryptoFetcher::fetch(*self, auth_token)
     }
 }
@@ -43,7 +43,7 @@ impl<T> RsaCryptoFetcher for &mut T
 where
     T: RsaCryptoFetcher,
 {
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<&RsaCrypto>, CryptoError> {
+    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
         RsaCryptoFetcher::fetch(*self, auth_token)
     }
 }

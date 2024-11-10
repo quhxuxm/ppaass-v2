@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 /// The unified address which can support both IP V4, IP V6 and Domain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UnifiedAddress {
-    Domain { host: String, port: u32 },
+    Domain { host: String, port: u16 },
     Ip(SocketAddr),
 }
 
@@ -40,7 +40,7 @@ impl TryFrom<String> for UnifiedAddress {
                 }
                 2 => {
                     let domain = domain_parts[0];
-                    let port = domain_parts[1].parse::<u32>().map_err(|_| {
+                    let port = domain_parts[1].parse::<u16>().map_err(|_| {
                         DomainError::ParseUnifiedAddressToDomainAddress(value.clone())
                     })?;
                     Ok(Self::Domain {
@@ -85,5 +85,11 @@ impl TryFrom<UnifiedAddress> for SocketAddr {
             }
             UnifiedAddress::Ip(socket_addr) => Ok(socket_addr),
         }
+    }
+}
+
+impl From<SocketAddr> for UnifiedAddress {
+    fn from(value: SocketAddr) -> Self {
+        UnifiedAddress::Ip(value)
     }
 }

@@ -7,6 +7,8 @@ pub struct Config {
     port: u16,
     #[access(get(ty(&str)))]
     auth_token: String,
+    #[access(get(ty(&str)))]
+    proxy_url: String,
     #[access(get)]
     worker_threads: usize,
     #[access(get)]
