@@ -34,10 +34,7 @@ impl ProxyServer {
             .route("/session/create", post(handler::create_session))
             .route("/session", get(handler::get_all_sessions))
             .route("/session/:session_token", get(handler::get_session))
-            .route(
-                "/relay/:session_token/:relay_info",
-                get(handler::prepare_dest_transport),
-            )
+            .route("/relay", get(handler::prepare_dest_transport))
             .with_state(state);
         let session_server_listener = TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),

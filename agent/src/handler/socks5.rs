@@ -9,16 +9,18 @@ use ppaass_crypto::aes::encrypt_with_aes;
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::relay::{RelayInfo, RelayInfoBuilder, RelayType};
 use ppaass_domain::session::Encryption;
+use reqwest_websocket::RequestBuilderExt;
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
     Address, AsyncStreamOperation, AuthMethod, Command, Request as Socks5Request,
 };
 use std::sync::Arc;
-use reqwest_websocket::RequestBuilderExt;
 use tokio::net::TcpStream;
 use tracing::debug;
-
-fn generate_relay_info_token(relay_info: RelayInfo, agent_encryption: &Encryption)->Result<String, AgentError>{
+fn generate_relay_info_token(
+    relay_info: RelayInfo,
+    agent_encryption: &Encryption,
+) -> Result<String, AgentError> {
     let encrypted_relay_info_bytes: Vec<u8> = match agent_encryption {
         Encryption::Plain => relay_info.try_into()?,
         Encryption::Aes(aes_token) => {
@@ -72,13 +74,23 @@ pub async fn handle_socks5_client_tcp_stream(
                     relay_info_builder.build()?
                 }
             };
-            let relay_info_token = generate_relay_info_token(relay_info.clone(), &agent_encryption)?;
-            let relay_url = format!("{}/{}/{}", config.proxy_relay_entry(), session_token, relay_info_token);
-            let relay_upgrade_connection =  http_client.get(relay_url).upgrade().send().await?;
-            let relay_websocket=relay_upgrade_connection.into_websocket().await?;
+            let relay_info_token =
+                generate_relay_info_token(relay_info.clone(), &agent_encryption)?;
+            let relay_url = format!(
+                "{}/{}/{}",
+                config.proxy_relay_entry(),
+                session_token,
+                relay_info_token
+            );
+            let relay_url = format!("{}", config.proxy_relay_entry(),);
+            debug!("Begin to create relay websocket on proxy (GET): {relay_url}");
+            let relay_upgrade_connection = http_client.get(&relay_url).upgrade().send().await?;
+            debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {relay_url}");
+            let relay_websocket = relay_upgrade_connection.into_websocket().await?;
+            debug!("Create relay connection websocket on proxy success: {relay_url}");
         }
         Command::Bind => {}
         Command::UdpAssociate => {}
     }
-    todo!()
+    Ok(())
 }

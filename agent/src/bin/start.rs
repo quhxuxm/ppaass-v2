@@ -1,16 +1,20 @@
-use std::fs::read_to_string;
-use std::path::PathBuf;
-use std::sync::Arc;
-use anyhow::Result;
-use clap::Parser;
-use tokio::runtime::Builder;
-use tracing::{error, info};
 use agent::bo::command::CommandArgs;
 use agent::bo::config::Config;
 use agent::server::AgentServer;
+use anyhow::Result;
+use clap::Parser;
+use std::fs::read_to_string;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::runtime::Builder;
+use tracing::Level;
+use tracing::{error, info};
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
 
 pub fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
     let command = CommandArgs::parse();
     let config_file_path = command
         .config

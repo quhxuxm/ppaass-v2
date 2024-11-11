@@ -7,9 +7,12 @@ use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::runtime::Builder;
-use tracing::{error, info};
+use tracing::{error, info, Level};
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
 pub fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
     let command = CommandArgs::parse();
     let config_file_path = command
         .config

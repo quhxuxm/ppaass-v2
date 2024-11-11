@@ -29,12 +29,12 @@ impl AgentRsaCryptoFetcher {
                 );
                 return;
             };
-            let public_key_path = rsa_dir_path.join(user_token).join("AgentPublicKey.pem");
+            let public_key_path = rsa_dir_path.join(user_token).join("ProxyPublicKey.pem");
             let Ok(public_key_file) = File::open(&public_key_path) else {
                 error!("Fail to read public key file: {public_key_path:?}.");
                 return;
             };
-            let private_key_path = rsa_dir_path.join(user_token).join("ProxyPrivateKey.pem");
+            let private_key_path = rsa_dir_path.join(user_token).join("AgentPrivateKey.pem");
             let private_key_path = Path::new(Path::new(&private_key_path));
             let Ok(private_key_file) = File::open(private_key_path) else {
                 error!("Fail to read private key file :{private_key_path:?}.");
