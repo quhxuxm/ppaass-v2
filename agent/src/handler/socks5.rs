@@ -7,15 +7,29 @@ use base64::Engine;
 use bytes::Bytes;
 use ppaass_crypto::aes::encrypt_with_aes;
 use ppaass_domain::address::UnifiedAddress;
-use ppaass_domain::relay::{RelayInfoBuilder, RelayType};
+use ppaass_domain::relay::{RelayInfo, RelayInfoBuilder, RelayType};
 use ppaass_domain::session::Encryption;
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
     Address, AsyncStreamOperation, AuthMethod, Command, Request as Socks5Request,
 };
 use std::sync::Arc;
+use reqwest_websocket::RequestBuilderExt;
 use tokio::net::TcpStream;
 use tracing::debug;
+
+fn generate_relay_info_token(relay_info: RelayInfo, agent_encryption: &Encryption)->Result<String, AgentError>{
+    let encrypted_relay_info_bytes: Vec<u8> = match agent_encryption {
+        Encryption::Plain => relay_info.try_into()?,
+        Encryption::Aes(aes_token) => {
+            let relay_info_bytes: Vec<u8> = relay_info.try_into()?;
+            encrypt_with_aes(&aes_token, &relay_info_bytes)?.into()
+        }
+    };
+    let encrypted_relay_info = BASE64_STANDARD.encode(&encrypted_relay_info_bytes);
+    let encrypted_relay_info_bytes = encrypted_relay_info.as_bytes();
+    Ok(hex::encode(&encrypted_relay_info_bytes))
+}
 pub async fn handle_socks5_client_tcp_stream(
     config: Arc<Config>,
     request: HandlerRequest,
@@ -58,17 +72,10 @@ pub async fn handle_socks5_client_tcp_stream(
                     relay_info_builder.build()?
                 }
             };
-            let encrypted_relay_info_bytes: Vec<u8> = match agent_encryption {
-                Encryption::Plain => relay_info.try_into()?,
-                Encryption::Aes(aes_token) => {
-                    let relay_info_bytes: Vec<u8> = relay_info.try_into()?;
-                    encrypt_with_aes(&aes_token, &relay_info_bytes)?.into()
-                }
-            };
-            let encrypted_relay_info = BASE64_STANDARD.encode(&encrypted_relay_info_bytes);
-            let encrypted_relay_info_bytes = encrypted_relay_info.as_bytes();
-            let encrypted_relay_info_bytes = hex::encode(&encrypted_relay_info_bytes);
-            let relay_url = format!("{}/{}/{}", config.proxy_url());
+            let relay_info_token = generate_relay_info_token(relay_info.clone(), &agent_encryption)?;
+            let relay_url = format!("{}/{}/{}", config.proxy_relay_entry(), session_token, relay_info_token);
+            let relay_upgrade_connection =  http_client.get(relay_url).upgrade().send().await?;
+            let relay_websocket=relay_upgrade_connection.into_websocket().await?;
         }
         Command::Bind => {}
         Command::UdpAssociate => {}

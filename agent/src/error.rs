@@ -14,6 +14,8 @@ pub enum AgentError {
     #[error(transparent)]
     HttpClient(#[from] reqwest::Error),
     #[error(transparent)]
+    HttpClientWebSocket(#[from] reqwest_websocket::Error),
+    #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error("Rsa crypto not exist: {0}")]
     RsaCryptoNotExist(String),

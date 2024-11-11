@@ -34,3 +34,4 @@ tokio-tungstenite = { workspace = true }
 hex = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 base64 = { workspace = true }
+reqwest-websocket = { workspace = true }

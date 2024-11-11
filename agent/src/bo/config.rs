@@ -8,7 +8,9 @@ pub struct Config {
     #[access(get(ty(&str)))]
     auth_token: String,
     #[access(get(ty(&str)))]
-    proxy_url: String,
+    proxy_create_session_entry: String,
+    #[access(get(ty(&str)))]
+    proxy_relay_entry: String,
     #[access(get)]
     worker_threads: usize,
     #[access(get)]

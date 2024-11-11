@@ -66,7 +66,7 @@ impl AgentServer {
         let create_session_request = create_session_request_builder.build()?;
 
         let create_session_response = http_client
-            .post(config.proxy_url())
+            .post(config.proxy_create_session_entry())
             .json(&create_session_request)
             .send()
             .await?;
