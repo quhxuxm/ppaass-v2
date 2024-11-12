@@ -6,5 +6,5 @@ proxy_write_timeout = 120000
 client_read_timeout = 120000
 client_write_timeout = 120000
 rsa_dir = "resources/agent/rsa"
-proxy_create_session_entry = "http://localhost/session/create"
-proxy_relay_entry = "ws://localhost/relay"
+proxy_create_session_entry = "http://192.168.31.5/session/create"
+proxy_relay_entry = "ws://192.168.31.5/relay"

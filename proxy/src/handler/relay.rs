@@ -4,7 +4,7 @@ use crate::destination::write::DestinationTransportWrite;
 use crate::destination::DestinationTransport;
 use crate::error::ProxyError;
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Path, State, WebSocketUpgrade};
+use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::response::Response;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -14,10 +14,15 @@ use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::relay::{RelayInfo, RelayType};
 use ppaass_domain::session::Encryption;
+use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tracing::{debug, error};
+#[derive(Deserialize)]
+pub struct RelayUpgradeParam {
+    session_token: String,
+}
 async fn relay_agent_to_dest(
     agent_encryption: Encryption,
     mut ws_read: SplitStream<WebSocket>,
@@ -50,7 +55,6 @@ async fn relay_agent_to_dest(
         }
     }
 }
-
 async fn relay_dest_to_agent(
     proxy_encryption: Encryption,
     mut ws_write: SplitSink<WebSocket, Message>,
@@ -78,103 +82,94 @@ async fn relay_dest_to_agent(
         }
     }
 }
-
-pub async fn prepare_dest_transport(
+pub async fn relay(
+    Query(param): Query<RelayUpgradeParam>,
     ws_upgrade: WebSocketUpgrade,
-    // Path(session_token): Path<String>,
-    // Path(relay_info): Path<String>,
     State(server_state): State<Arc<ServerState>>,
 ) -> Response {
-    debug!("Websocket for relay created.");
-    // debug!(
-    //     session_token = { session_token.clone() },
-    //     relay_info = { relay_info.clone() },
-    //     "Receive websocket upgrade request."
-    // );
-    // ws_upgrade.on_upgrade(|ws| async move {
-    //     let (auth_token, agent_encryption, proxy_encryption) = {
-    //         let session_repository = server_state.session_repository();
-    //         let session_repository = match session_repository.lock() {
-    //             Ok(session_repository) => session_repository,
-    //             Err(_) => {
-    //                 error!(
-    //                     session_token = { session_token.clone() },
-    //                     "Fail to acquire session repository lock for session"
-    //                 );
-    //                 return;
-    //             }
-    //         };
-    //         let Some(session) = session_repository.get(&session_token) else {
-    //             return;
-    //         };
-    //         (
-    //             session.auth_token().to_owned(),
-    //             session.agent_encryption().clone(),
-    //             session.proxy_encryption().clone(),
-    //         )
-    //     };
-    //
-    //     let relay_info = match parse_relay_info(relay_info, &agent_encryption) {
-    //         Ok(relay_info) => relay_info,
-    //         Err(e) => {
-    //             error!(
-    //                 session_token = { session_token.clone() },
-    //                 auth_token = { auth_token.clone() },
-    //                 "Fail to parse relay info: {}",
-    //                 e
-    //             );
-    //             return;
-    //         }
-    //     };
-    //
-    //     let dst_address = relay_info.dst_address().clone();
-    //     let dst_address: SocketAddr = match dst_address.try_into() {
-    //         Ok(dst_address) => dst_address,
-    //         Err(e) => {
-    //             error!(
-    //                 session_token = { session_token.clone() },
-    //                 auth_token = { auth_token.clone() },
-    //                 "Fail to parse destination address to socket address: {}",
-    //                 e
-    //             );
-    //             return;
-    //         }
-    //     };
-    //     let dest_transport = match relay_info.relay_type() {
-    //         RelayType::Tcp => {
-    //             let dest_address = vec![dst_address];
-    //             match TcpStream::connect(dest_address.as_slice()).await {
-    //                 Ok(tcp_stream) => DestinationTransport::new_tcp(tcp_stream),
-    //                 Err(e) => {
-    //                     error!(
-    //                         session_token = { session_token.clone() },
-    //                         auth_token = { auth_token.clone() },
-    //                         "Fail to connect destination: {}",
-    //                         e
-    //                     );
-    //                     return;
-    //                 }
-    //             }
-    //         }
-    //         RelayType::Udp => {
-    //             todo!()
-    //         }
-    //     };
-    //     let (dest_transport_write, dest_transport_read) = dest_transport.split();
-    //
-    //     let (ws_write, ws_read) = ws.split();
-    //     tokio::spawn(relay_agent_to_dest(
-    //         agent_encryption,
-    //         ws_read,
-    //         dest_transport_write,
-    //     ));
-    //     tokio::spawn(relay_dest_to_agent(
-    //         proxy_encryption,
-    //         ws_write,
-    //         dest_transport_read,
-    //     ));
-    // })
-    Response::default()
+    debug!(session_token={param.session_token.clone()}, "Receive websocket upgrade request.");
+    ws_upgrade.on_upgrade(|ws| async move {
+        let (auth_token, agent_encryption, proxy_encryption) = {
+            let session_repository = server_state.session_repository();
+            let session_repository = match session_repository.lock() {
+                Ok(session_repository) => session_repository,
+                Err(_) => {
+                    error!(
+                        session_token = { param.session_token.clone() },
+                        "Fail to acquire session repository lock for session"
+                    );
+                    return;
+                }
+            };
+            let Some(session) = session_repository.get(&param.session_token) else {
+                return;
+            };
+            (
+                session.auth_token().to_owned(),
+                session.agent_encryption().clone(),
+                session.proxy_encryption().clone(),
+            )
+        };
+        // let relay_info = match parse_relay_info(relay_info, &agent_encryption) {
+        //     Ok(relay_info) => relay_info,
+        //     Err(e) => {
+        //         error!(
+        //             session_token = { session_token.clone() },
+        //             auth_token = { auth_token.clone() },
+        //             "Fail to parse relay info: {}",
+        //             e
+        //         );
+        //         return;
+        //     }
+        // };
+        //
+        // let dst_address = relay_info.dst_address().clone();
+        // let dst_address: SocketAddr = match dst_address.try_into() {
+        //     Ok(dst_address) => dst_address,
+        //     Err(e) => {
+        //         error!(
+        //             session_token = { session_token.clone() },
+        //             auth_token = { auth_token.clone() },
+        //             "Fail to parse destination address to socket address: {}",
+        //             e
+        //         );
+        //         return;
+        //     }
+        // };
+        // let dest_transport = match relay_info.relay_type() {
+        //     RelayType::Tcp => {
+        //         let dest_address = vec![dst_address];
+        //         match TcpStream::connect(dest_address.as_slice()).await {
+        //             Ok(tcp_stream) => DestinationTransport::new_tcp(tcp_stream),
+        //             Err(e) => {
+        //                 error!(
+        //                     session_token = { session_token.clone() },
+        //                     auth_token = { auth_token.clone() },
+        //                     "Fail to connect destination: {}",
+        //                     e
+        //                 );
+        //                 return;
+        //             }
+        //         }
+        //     }
+        //     RelayType::Udp => {
+        //         todo!()
+        //     }
+        // };
+        // let (dest_transport_write, dest_transport_read) = dest_transport.split();
+        //
+        // let (ws_write, ws_read) = ws.split();
+        // tokio::spawn(relay_agent_to_dest(
+        //     agent_encryption,
+        //     ws_read,
+        //     dest_transport_write,
+        // ));
+        // tokio::spawn(relay_dest_to_agent(
+        //     proxy_encryption,
+        //     ws_write,
+        //     dest_transport_read,
+        // ));
+    })
 }
 fn parse_relay_info(
     relay_info: String,

@@ -7,17 +7,18 @@ use crate::handler::socks5::handle_socks5_client_tcp_stream;
 use crate::handler::HandlerRequest;
 use crate::{publish_server_event, HttpClient};
 use bytes::Bytes;
+use futures_util::SinkExt;
 use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::{RsaCrypto, RsaCryptoFetcher};
 use ppaass_domain::session::{CreateSessionRequestBuilder, CreateSessionResponse, Encryption};
+use reqwest_websocket::{Message, RequestBuilderExt};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
-use tracing::error;
+use tracing::{debug, error};
 const SOCKS5_VERSION: u8 = 0x05;
 const SOCKS4_VERSION: u8 = 0x04;
-
 pub struct AgentServer {
     config: Arc<Config>,
     rsa_crypto_fetcher: Arc<AgentRsaCryptoFetcher>,
@@ -29,7 +30,6 @@ impl AgentServer {
             config,
         })
     }
-
     async fn switch_protocol(client_tcp_stream: &TcpStream) -> Result<u8, AgentError> {
         let mut protocol = [0u8; 1];
         client_tcp_stream.peek(&mut protocol).await?;
@@ -39,7 +39,6 @@ impl AgentServer {
             Ok(protocol[0])
         }
     }
-
     async fn handle_client_tcp_stream(
         config: Arc<Config>,
         request: HandlerRequest,
@@ -51,7 +50,6 @@ impl AgentServer {
             _ => handle_http_client_tcp_stream(config, request).await,
         }
     }
-
     async fn create_session(
         config: Arc<Config>,
         rsa_crypto: &RsaCrypto,
@@ -64,7 +62,6 @@ impl AgentServer {
         create_session_request_builder
             .agent_encryption(Encryption::Aes(encrypted_aes_token.into()));
         let create_session_request = create_session_request_builder.build()?;
-
         let create_session_response = http_client
             .post(config.proxy_create_session_entry())
             .json(&create_session_request)
@@ -75,7 +72,6 @@ impl AgentServer {
             .await?;
         Ok(create_session_response)
     }
-
     async fn concrete_start_server(
         config: Arc<Config>,
         rsa_crypto_fetcher: Arc<AgentRsaCryptoFetcher>,
@@ -86,7 +82,6 @@ impl AgentServer {
                 .ok_or(AgentError::RsaCryptoNotExist(
                     config.auth_token().to_owned(),
                 ))?;
-
         let http_client = HttpClient::new();
         let agent_aes_token = random_32_bytes();
         let create_session_response = Self::create_session(
@@ -95,12 +90,26 @@ impl AgentServer {
             agent_aes_token.clone(),
             http_client.clone(),
         )
-        .await?;
+            .await?;
+        let mut websocket_pool = Vec::new();
+        for i in 0..10 {
+            debug!("Begin to create relay websocket on proxy (GET): {}",config.proxy_relay_entry());
+            let relay_upgrade_connection = http_client.get(config.proxy_relay_entry()).query(&[("session_token", create_session_response.session_token())]).upgrade().send().await?;
+            debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {}",config.proxy_relay_entry());
+            let relay_websocket = relay_upgrade_connection.into_websocket().await?;
+            debug!("Create relay connection websocket on proxy success: {}",config.proxy_relay_entry());
+            websocket_pool.push(relay_websocket);
+        }
+        let mut i = 0;
+        for websocket in &mut websocket_pool {
+            websocket.send(Message::Text(format!("Hello {i}"))).await?;
+            i += 1;
+        }
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-        .await?;
+            .await?;
         loop {
             let session_token = create_session_response.session_token().to_owned();
             let proxy_encryption = create_session_response.proxy_encryption().clone();
@@ -122,7 +131,7 @@ impl AgentServer {
                         agent_encryption: Encryption::Aes(agent_aes_token),
                     },
                 )
-                .await
+                    .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }

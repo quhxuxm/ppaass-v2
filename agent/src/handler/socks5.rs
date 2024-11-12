@@ -74,20 +74,7 @@ pub async fn handle_socks5_client_tcp_stream(
                     relay_info_builder.build()?
                 }
             };
-            let relay_info_token =
-                generate_relay_info_token(relay_info.clone(), &agent_encryption)?;
-            let relay_url = format!(
-                "{}/{}/{}",
-                config.proxy_relay_entry(),
-                session_token,
-                relay_info_token
-            );
-            let relay_url = format!("{}", config.proxy_relay_entry(),);
-            debug!("Begin to create relay websocket on proxy (GET): {relay_url}");
-            let relay_upgrade_connection = http_client.get(&relay_url).upgrade().send().await?;
-            debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {relay_url}");
-            let relay_websocket = relay_upgrade_connection.into_websocket().await?;
-            debug!("Create relay connection websocket on proxy success: {relay_url}");
+            
         }
         Command::Bind => {}
         Command::UdpAssociate => {}
