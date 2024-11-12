@@ -90,26 +90,13 @@ impl AgentServer {
             agent_aes_token.clone(),
             http_client.clone(),
         )
-            .await?;
-        let mut websocket_pool = Vec::new();
-        for i in 0..10 {
-            debug!("Begin to create relay websocket on proxy (GET): {}",config.proxy_relay_entry());
-            let relay_upgrade_connection = http_client.get(config.proxy_relay_entry()).query(&[("session_token", create_session_response.session_token())]).upgrade().send().await?;
-            debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {}",config.proxy_relay_entry());
-            let relay_websocket = relay_upgrade_connection.into_websocket().await?;
-            debug!("Create relay connection websocket on proxy success: {}",config.proxy_relay_entry());
-            websocket_pool.push(relay_websocket);
-        }
-        let mut i = 0;
-        for websocket in &mut websocket_pool {
-            websocket.send(Message::Text(format!("Hello {i}"))).await?;
-            i += 1;
-        }
+        .await?;
+
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-            .await?;
+        .await?;
         loop {
             let session_token = create_session_response.session_token().to_owned();
             let proxy_encryption = create_session_response.proxy_encryption().clone();
@@ -131,7 +118,7 @@ impl AgentServer {
                         agent_encryption: Encryption::Aes(agent_aes_token),
                     },
                 )
-                    .await
+                .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }

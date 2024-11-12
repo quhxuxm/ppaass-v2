@@ -5,6 +5,7 @@ use crate::HttpClient;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use bytes::Bytes;
+use futures_util::StreamExt;
 use ppaass_crypto::aes::encrypt_with_aes;
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::relay::{RelayInfo, RelayInfoBuilder, RelayType};
@@ -12,9 +13,10 @@ use ppaass_domain::session::Encryption;
 use reqwest_websocket::RequestBuilderExt;
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
-    Address, AsyncStreamOperation, AuthMethod, Command, Request as Socks5Request,
+    Address, AsyncStreamOperation, AuthMethod, Command, Reply, Request as Socks5Request, Response,
 };
 use std::sync::Arc;
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tracing::debug;
 fn generate_relay_info_token(
@@ -56,11 +58,11 @@ pub async fn handle_socks5_client_tcp_stream(
     debug!("Receive client socks5 handshake init request: {init_request:?}");
     match init_request.command {
         Command::Connect => {
-            let relay_info = match init_request.address {
+            let relay_info = match &init_request.address {
                 Address::SocketAddress(socket_addr) => {
                     let mut relay_info_builder = RelayInfoBuilder::default();
                     relay_info_builder
-                        .dst_address(socket_addr.into())
+                        .dst_address((*socket_addr).into())
                         .src_address(client_socket_addr.into())
                         .relay_type(RelayType::Tcp);
                     relay_info_builder.build()?
@@ -68,13 +70,50 @@ pub async fn handle_socks5_client_tcp_stream(
                 Address::DomainAddress(domain, port) => {
                     let mut relay_info_builder = RelayInfoBuilder::default();
                     relay_info_builder
-                        .dst_address(UnifiedAddress::Domain { host: domain, port })
+                        .dst_address(UnifiedAddress::Domain {
+                            host: domain.to_owned(),
+                            port: *port,
+                        })
                         .src_address(client_socket_addr.into())
                         .relay_type(RelayType::Tcp);
                     relay_info_builder.build()?
                 }
             };
-            
+
+            let relay_info_token =
+                generate_relay_info_token(relay_info.clone(), &agent_encryption)?;
+            let relay_url = format!(
+                "{}/{}/{}",
+                config.proxy_relay_entry(),
+                session_token,
+                relay_info_token
+            );
+
+            debug!("Begin to create relay websocket on proxy (GET): {relay_url}");
+            let relay_upgrade_connection = http_client.get(&relay_url).upgrade().send().await?;
+            debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {relay_url}");
+            let relay_ws = relay_upgrade_connection.into_websocket().await?;
+            debug!("Create relay connection websocket on proxy success: {relay_url}");
+            let init_response = Response::new(Reply::Succeeded, init_request.address);
+            init_response
+                .write_to_async_stream(&mut client_tcp_stream)
+                .await?;
+            let (relay_ws_write, relay_ws_read) = relay_ws.split();
+            let (mut client_tcp_read, client_tcp_write) = client_tcp_stream.into_split();
+            tokio::spawn(async move {
+                loop {
+                    let mut client_tcp_recv_buf = [0u8; 65536];
+                    let client_data_size =
+                        match client_tcp_read.read(&mut client_tcp_recv_buf).await {
+                            Ok(client_data_size) => client_data_size,
+                            Err(e) => {
+                                return;
+                            }
+                        };
+                    let client_tcp_recv_buf = &client_tcp_recv_buf[..client_data_size];
+                    encrypt_with_aes()
+                }
+            });
         }
         Command::Bind => {}
         Command::UdpAssociate => {}

@@ -83,11 +83,15 @@ async fn relay_dest_to_agent(
     }
 }
 pub async fn relay(
-    Query(param): Query<RelayUpgradeParam>,
+    Path((session_token, relay_info)): Path<(String, String)>,
     ws_upgrade: WebSocketUpgrade,
     State(server_state): State<Arc<ServerState>>,
 ) -> Response {
-    debug!(session_token={param.session_token.clone()}, "Receive websocket upgrade request.");
+    debug!(
+        session_token = { session_token.clone() },
+        relay_info = { relay_info.clone() },
+        "Receive websocket upgrade request."
+    );
     ws_upgrade.on_upgrade(|ws| async move {
         let (auth_token, agent_encryption, proxy_encryption) = {
             let session_repository = server_state.session_repository();
@@ -95,13 +99,13 @@ pub async fn relay(
                 Ok(session_repository) => session_repository,
                 Err(_) => {
                     error!(
-                        session_token = { param.session_token.clone() },
+                        session_token = { session_token.clone() },
                         "Fail to acquire session repository lock for session"
                     );
                     return;
                 }
             };
-            let Some(session) = session_repository.get(&param.session_token) else {
+            let Some(session) = session_repository.get(&session_token) else {
                 return;
             };
             (
@@ -110,65 +114,62 @@ pub async fn relay(
                 session.proxy_encryption().clone(),
             )
         };
-        // let relay_info = match parse_relay_info(relay_info, &agent_encryption) {
-        //     Ok(relay_info) => relay_info,
-        //     Err(e) => {
-        //         error!(
-        //             session_token = { session_token.clone() },
-        //             auth_token = { auth_token.clone() },
-        //             "Fail to parse relay info: {}",
-        //             e
-        //         );
-        //         return;
-        //     }
-        // };
-        //
-        // let dst_address = relay_info.dst_address().clone();
-        // let dst_address: SocketAddr = match dst_address.try_into() {
-        //     Ok(dst_address) => dst_address,
-        //     Err(e) => {
-        //         error!(
-        //             session_token = { session_token.clone() },
-        //             auth_token = { auth_token.clone() },
-        //             "Fail to parse destination address to socket address: {}",
-        //             e
-        //         );
-        //         return;
-        //     }
-        // };
-        // let dest_transport = match relay_info.relay_type() {
-        //     RelayType::Tcp => {
-        //         let dest_address = vec![dst_address];
-        //         match TcpStream::connect(dest_address.as_slice()).await {
-        //             Ok(tcp_stream) => DestinationTransport::new_tcp(tcp_stream),
-        //             Err(e) => {
-        //                 error!(
-        //                     session_token = { session_token.clone() },
-        //                     auth_token = { auth_token.clone() },
-        //                     "Fail to connect destination: {}",
-        //                     e
-        //                 );
-        //                 return;
-        //             }
-        //         }
-        //     }
-        //     RelayType::Udp => {
-        //         todo!()
-        //     }
-        // };
-        // let (dest_transport_write, dest_transport_read) = dest_transport.split();
-        //
-        // let (ws_write, ws_read) = ws.split();
-        // tokio::spawn(relay_agent_to_dest(
-        //     agent_encryption,
-        //     ws_read,
-        //     dest_transport_write,
-        // ));
-        // tokio::spawn(relay_dest_to_agent(
-        //     proxy_encryption,
-        //     ws_write,
-        //     dest_transport_read,
-        // ));
+        let relay_info = match parse_relay_info(relay_info, &agent_encryption) {
+            Ok(relay_info) => relay_info,
+            Err(e) => {
+                error!(
+                    session_token = { session_token.clone() },
+                    auth_token = { auth_token.clone() },
+                    "Fail to parse relay info: {}",
+                    e
+                );
+                return;
+            }
+        };
+
+        let dst_address = relay_info.dst_address().clone();
+        let dst_addresses: Vec<SocketAddr> = match dst_address.try_into() {
+            Ok(dst_addresses) => dst_addresses,
+            Err(e) => {
+                error!(
+                    session_token = { session_token.clone() },
+                    auth_token = { auth_token.clone() },
+                    "Fail to parse destination address to socket address: {}",
+                    e
+                );
+                return;
+            }
+        };
+        let dest_transport = match relay_info.relay_type() {
+            RelayType::Tcp => match TcpStream::connect(dst_addresses.as_slice()).await {
+                Ok(tcp_stream) => DestinationTransport::new_tcp(tcp_stream),
+                Err(e) => {
+                    error!(
+                        session_token = { session_token.clone() },
+                        auth_token = { auth_token.clone() },
+                        "Fail to connect destination: {}",
+                        e
+                    );
+                    return;
+                }
+            },
+            RelayType::Udp => {
+                todo!()
+            }
+        };
+        let (dest_transport_write, dest_transport_read) = dest_transport.split();
+
+        let (ws_write, ws_read) = ws.split();
+        tokio::spawn(relay_agent_to_dest(
+            agent_encryption,
+            ws_read,
+            dest_transport_write,
+        ));
+        tokio::spawn(relay_dest_to_agent(
+            proxy_encryption,
+            ws_write,
+            dest_transport_read,
+        ));
     })
 }
 fn parse_relay_info(

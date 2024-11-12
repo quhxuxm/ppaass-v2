@@ -11,4 +11,6 @@ pub enum DomainError {
     ParseUnifiedAddressToIpAddress(#[from] AddrParseError),
     #[error("Failed to parse unified address to domain: {0:?}")]
     ParseUnifiedAddressToDomainAddress(String),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }

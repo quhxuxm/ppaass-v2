@@ -3,7 +3,7 @@ use bytes::Bytes;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 /// The unified address which can support both IP V4, IP V6 and Domain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UnifiedAddress {
@@ -76,14 +76,16 @@ impl TryFrom<UnifiedAddress> for Bytes {
     }
 }
 
-impl TryFrom<UnifiedAddress> for SocketAddr {
+impl TryFrom<UnifiedAddress> for Vec<SocketAddr> {
     type Error = DomainError;
     fn try_from(value: UnifiedAddress) -> Result<Self, Self::Error> {
         match value {
-            UnifiedAddress::Domain { .. } => {
-                Err(DomainError::UnmatchedUnifiedAddressType(value.clone()))
+            UnifiedAddress::Domain { host, port } => {
+                let socket_addresses = format!("{host}:{port}").to_socket_addrs()?;
+                let socket_addresses = socket_addresses.collect::<Vec<SocketAddr>>();
+                Ok(socket_addresses)
             }
-            UnifiedAddress::Ip(socket_addr) => Ok(socket_addr),
+            UnifiedAddress::Ip(socket_addr) => Ok(vec![socket_addr]),
         }
     }
 }
