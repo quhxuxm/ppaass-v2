@@ -221,6 +221,13 @@ pub async fn handle_socks5_client_tcp_stream(
                         }
                         Message::Close { code, reason } => {
                             debug!(session_token={&session_token}, relay_info={&relay_info_token},"Received close message from proxy with code: {code}, reason: {reason}");
+                            if let Err(e) = client_tcp_write.close().await {
+                                error!(
+                                    session_token = { &session_token },
+                                    relay_info = { &relay_info_token },
+                                    "Fail to close client tcp connection when proxy websocket close: {e:?}"
+                                );
+                            }
                             return;
                         }
                     };
