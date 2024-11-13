@@ -90,21 +90,28 @@ impl AgentServer {
             agent_aes_token.clone(),
             http_client.clone(),
         )
-        .await?;
-
+            .await?;
+        let session_token = create_session_response.session_token().to_owned();
+        let proxy_encryption = create_session_response.proxy_encryption().clone();
+        let proxy_encryption = match proxy_encryption {
+            Encryption::Plain => proxy_encryption,
+            Encryption::Aes(rsa_encrypted_aes_token) => {
+                Encryption::Aes(rsa_crypto.decrypt(&rsa_encrypted_aes_token)?.into())
+            }
+        };
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-        .await?;
+            .await?;
         loop {
-            let session_token = create_session_response.session_token().to_owned();
-            let proxy_encryption = create_session_response.proxy_encryption().clone();
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
             let rsa_crypto = rsa_crypto.clone();
             let agent_aes_token = agent_aes_token.clone();
             let config = config.clone();
+            let session_token = session_token.clone();
+            let proxy_encryption = proxy_encryption.clone();
             tokio::spawn(async move {
                 if let Err(e) = Self::handle_client_tcp_stream(
                     config,
@@ -118,7 +125,7 @@ impl AgentServer {
                         agent_encryption: Encryption::Aes(agent_aes_token),
                     },
                 )
-                .await
+                    .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }

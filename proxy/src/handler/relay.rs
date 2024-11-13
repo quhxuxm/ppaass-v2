@@ -3,7 +3,7 @@ use crate::destination::read::DestinationTransportRead;
 use crate::destination::write::DestinationTransportWrite;
 use crate::destination::DestinationTransport;
 use crate::error::ProxyError;
-use axum::extract::ws::{Message, WebSocket};
+use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::response::Response;
 use base64::prelude::BASE64_STANDARD;
@@ -35,23 +35,43 @@ async fn relay_agent_to_dest(
             Some(Err(e)) => return,
             Some(Ok(agent_data)) => agent_data,
         };
-        if let Message::Binary(agent_data) = agent_data {
-            let decrypted_agent_data = match &agent_encryption {
-                Encryption::Plain => agent_data.into(),
-                Encryption::Aes(aes_token) => {
-                    let decrypted_agent_data = match decrypt_with_aes(aes_token, &agent_data) {
-                        Ok(decrypted_agent_data) => decrypted_agent_data,
-                        Err(e) => {
-                            continue;
-                        }
-                    };
-                    decrypted_agent_data
-                }
-            };
-            let decrypted_agent_data = BytesMut::from(decrypted_agent_data.as_slice());
-            if let Err(e) = dest_transport_write.send(decrypted_agent_data).await {
+        let agent_data = match agent_data {
+            Message::Text(text_message) => {
+                debug!("Received text message from agent: {text_message}" );
+                continue;
+            }
+            Message::Binary(agent_data) => agent_data,
+            Message::Ping(ping_data) => {
+                debug!("Received ping message from agent:\n{}", pretty_hex::pretty_hex(&ping_data) );
+                continue;
+            }
+            Message::Pong(pong_data) => {
+                debug!("Received pong message from agent:\n{}", pretty_hex::pretty_hex(&pong_data) );
+                continue;
+            }
+            Message::Close(Some(CloseFrame { code, reason })) => {
+                debug!("Received close message from agent with code: {code}, reason: {reason}");
                 return;
             }
+            Message::Close(None) => {
+                debug!("Received close message from agent without any information.");
+                return;
+            }
+        };
+        let decrypted_agent_data = match &agent_encryption {
+            Encryption::Plain => agent_data,
+            Encryption::Aes(aes_token) => {
+                match decrypt_with_aes(aes_token, &agent_data) {
+                    Ok(decrypted_agent_data) => decrypted_agent_data,
+                    Err(e) => {
+                        continue;
+                    }
+                }
+            }
+        };
+        let decrypted_agent_data = BytesMut::from(decrypted_agent_data.as_slice());
+        if let Err(e) = dest_transport_write.send(decrypted_agent_data).await {
+            return;
         }
     }
 }
@@ -126,7 +146,6 @@ pub async fn relay(
                 return;
             }
         };
-
         let dst_address = relay_info.dst_address().clone();
         let dst_addresses: Vec<SocketAddr> = match dst_address.try_into() {
             Ok(dst_addresses) => dst_addresses,
@@ -158,7 +177,6 @@ pub async fn relay(
             }
         };
         let (dest_transport_write, dest_transport_read) = dest_transport.split();
-
         let (ws_write, ws_read) = ws.split();
         tokio::spawn(relay_agent_to_dest(
             agent_encryption,

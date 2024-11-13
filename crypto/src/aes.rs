@@ -7,21 +7,18 @@ use cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 pub fn generate_aes_encryption_token() -> Bytes {
     random_32_bytes()
 }
-
 pub fn encrypt_with_aes(encryption_token: &Bytes, target: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let aes_encryptor = Aes256::new(encryption_token[..].into());
     let result = aes_encryptor.encrypt_padded_vec::<Pkcs7>(target);
     Ok(result)
 }
-
 pub fn decrypt_with_aes(encryption_token: &Bytes, target: &[u8]) -> Result<Vec<u8>, CryptoError> {
-    let aes_decryptor = Aes256::new(encryption_token[..].into());
-    let result = aes_decryptor
+    let aes_decrypt = Aes256::new(encryption_token[..].into());
+    let result = aes_decrypt
         .decrypt_padded_vec::<Pkcs7>(target)
         .map_err(|e| CryptoError::Aes(format!("Fail to decrypt with aes block: {e:?}")))?;
     Ok(result)
 }
-
 #[test]
 fn test() -> Result<(), CryptoError> {
     let encryption_token = generate_aes_encryption_token();
