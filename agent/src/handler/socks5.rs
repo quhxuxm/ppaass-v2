@@ -102,19 +102,26 @@ pub async fn handle_socks5_client_tcp_stream(
                 tokio::spawn(async move {
                     loop {
                         let mut client_data = [0u8; 65536];
-                        let client_data_size =
-                            match client_tcp_read.read(&mut client_data).await {
-                                Ok(client_data_size) => client_data_size,
-                                Err(e) => {
-                                    error!(session_token={&session_token}, relay_info={&relay_info_token}, "Fail to read client data: {e:?}");
-                                    if let Err(e) = proxy_ws_write.close().await {
-                                        error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on read client data have error: {e:?}");
-                                    };
-                                    return;
-                                }
-                            };
+                        let client_data_size = match client_tcp_read.read(&mut client_data).await {
+                            Ok(client_data_size) => client_data_size,
+                            Err(e) => {
+                                error!(
+                                    session_token = { &session_token },
+                                    relay_info = { &relay_info_token },
+                                    "Fail to read client data: {e:?}"
+                                );
+                                if let Err(e) = proxy_ws_write.close().await {
+                                    error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on read client data have error: {e:?}");
+                                };
+                                return;
+                            }
+                        };
                         if client_data_size == 0 {
-                            debug!(session_token={&session_token}, relay_info={&relay_info_token},"Client data exhausted");
+                            debug!(
+                                session_token = { &session_token },
+                                relay_info = { &relay_info_token },
+                                "Client data exhausted"
+                            );
                             if let Err(e) = proxy_ws_write.close().await {
                                 error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on client data exhausted: {e:?}");
                             };
@@ -123,19 +130,29 @@ pub async fn handle_socks5_client_tcp_stream(
                         let client_data = &client_data[..client_data_size];
                         let client_data = match &agent_encryption {
                             Encryption::Plain => client_data.to_vec(),
-                            Encryption::Aes(aes_token) => match encrypt_with_aes(aes_token, client_data) {
-                                Ok(client_data) => client_data,
-                                Err(e) => {
-                                    error!(session_token={&session_token}, relay_info={&relay_info_token}, "Fail to aes encrypt client data: {e:?}");
-                                    if let Err(e) = proxy_ws_write.close().await {
-                                        error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
-                                    };
-                                    return;
+                            Encryption::Aes(aes_token) => {
+                                match encrypt_with_aes(aes_token, client_data) {
+                                    Ok(client_data) => client_data,
+                                    Err(e) => {
+                                        error!(
+                                            session_token = { &session_token },
+                                            relay_info = { &relay_info_token },
+                                            "Fail to aes encrypt client data: {e:?}"
+                                        );
+                                        if let Err(e) = proxy_ws_write.close().await {
+                                            error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
+                                        };
+                                        return;
+                                    }
                                 }
                             }
                         };
                         if let Err(e) = proxy_ws_write.send(Message::Binary(client_data)).await {
-                            error!(session_token={&session_token}, relay_info={&relay_info_token}, "Fail write client data to proxy: {e:?}");
+                            error!(
+                                session_token = { &session_token },
+                                relay_info = { &relay_info_token },
+                                "Fail write client data to proxy: {e:?}"
+                            );
                             if let Err(e) = proxy_ws_write.close().await {
                                 error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on write client data to proxy fail: {e:?}");
                             };
@@ -146,27 +163,44 @@ pub async fn handle_socks5_client_tcp_stream(
             }
             tokio::spawn(async move {
                 loop {
-                    let proxy_data =
-                        match proxy_ws_read.next().await {
-                            None => return,
-                            Some(Err(e)) => {
-                                error!(session_token={&session_token}, relay_info={&relay_info_token}, "Fail read data from proxy: {e:?}");
-                                return;
-                            }
-                            Some(Ok(proxy_data)) => proxy_data,
-                        };
+                    let proxy_data = match proxy_ws_read.next().await {
+                        None => return,
+                        Some(Err(e)) => {
+                            error!(
+                                session_token = { &session_token },
+                                relay_info = { &relay_info_token },
+                                "Fail read data from proxy: {e:?}"
+                            );
+                            return;
+                        }
+                        Some(Ok(proxy_data)) => proxy_data,
+                    };
                     let proxy_data = match proxy_data {
                         Message::Text(text_message) => {
-                            debug!(session_token={&session_token}, relay_info={&relay_info_token},"Received text message from proxy: {text_message}" );
+                            debug!(
+                                session_token = { &session_token },
+                                relay_info = { &relay_info_token },
+                                "Received text message from proxy: {text_message}"
+                            );
                             continue;
                         }
                         Message::Binary(proxy_data) => proxy_data,
                         Message::Ping(ping_data) => {
-                            debug!(session_token={&session_token}, relay_info={&relay_info_token},"Received ping message from proxy:\n{}", pretty_hex::pretty_hex(&ping_data) );
+                            debug!(
+                                session_token = { &session_token },
+                                relay_info = { &relay_info_token },
+                                "Received ping message from proxy:\n{}",
+                                pretty_hex::pretty_hex(&ping_data)
+                            );
                             continue;
                         }
                         Message::Pong(pong_data) => {
-                            debug!(session_token={&session_token}, relay_info={&relay_info_token},"Received pong message from proxy:\n{}", pretty_hex::pretty_hex(&pong_data) );
+                            debug!(
+                                session_token = { &session_token },
+                                relay_info = { &relay_info_token },
+                                "Received pong message from proxy:\n{}",
+                                pretty_hex::pretty_hex(&pong_data)
+                            );
                             continue;
                         }
                         Message::Close { code, reason } => {
@@ -175,19 +209,27 @@ pub async fn handle_socks5_client_tcp_stream(
                         }
                     };
                     let proxy_data = match &proxy_encryption {
-                        Encryption::Plain => {
-                            proxy_data
-                        }
-                        Encryption::Aes(aes_token) => match decrypt_with_aes(aes_token, &proxy_data) {
-                            Ok(proxy_data) => proxy_data,
-                            Err(e) => {
-                                error!(session_token={&session_token}, relay_info={&relay_info_token}, "Fail read decrypt aes data from proxy: {e:?}");
-                                return;
+                        Encryption::Plain => proxy_data,
+                        Encryption::Aes(aes_token) => {
+                            match decrypt_with_aes(aes_token, &proxy_data) {
+                                Ok(proxy_data) => proxy_data,
+                                Err(e) => {
+                                    error!(
+                                        session_token = { &session_token },
+                                        relay_info = { &relay_info_token },
+                                        "Fail read decrypt aes data from proxy: {e:?}"
+                                    );
+                                    return;
+                                }
                             }
                         }
                     };
                     if let Err(e) = client_tcp_write.write_all(&proxy_data).await {
-                        error!(session_token={&session_token}, relay_info={&relay_info_token}, "Fail to write proxy data to client: {e:?}");
+                        error!(
+                            session_token = { &session_token },
+                            relay_info = { &relay_info_token },
+                            "Fail to write proxy data to client: {e:?}"
+                        );
                         return;
                     };
                 }

@@ -88,7 +88,7 @@ impl AgentServer {
             agent_aes_token.clone(),
             http_client.clone(),
         )
-            .await?;
+        .await?;
         let session_token = create_session_response.session_token().to_owned();
         let proxy_encryption = create_session_response.proxy_encryption().clone();
         let proxy_encryption = match proxy_encryption {
@@ -101,7 +101,7 @@ impl AgentServer {
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-            .await?;
+        .await?;
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
@@ -121,7 +121,7 @@ impl AgentServer {
                         agent_encryption: Encryption::Aes(agent_aes_token),
                     },
                 )
-                    .await
+                .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }

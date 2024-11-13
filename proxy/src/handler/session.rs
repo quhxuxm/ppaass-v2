@@ -45,7 +45,10 @@ pub async fn get_all_sessions(
             let get_session_response = match get_session_response_builder.build() {
                 Ok(response) => response,
                 Err(e) => {
-                    error!(session_token={k}, "Fail to build get session response: {e:?}");
+                    error!(
+                        session_token = { k },
+                        "Fail to build get session response: {e:?}"
+                    );
                     return None;
                 }
             };
