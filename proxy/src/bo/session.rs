@@ -12,6 +12,6 @@ pub struct Session {
     agent_encryption: Encryption,
     #[access(get)]
     proxy_encryption: Encryption,
-    #[access(get_mut)]
+    #[access(get, get_mut)]
     relays: Vec<RelayInfo>,
 }

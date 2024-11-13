@@ -13,7 +13,7 @@ Accept: application/json
 GET http://localhost/session
 
 ###
-GET http://localhost/session/1f347375-b513-4f58-bfc8-6315d3002680
+GET http://localhost/session/96F99543F4FF4289907E206361A1C03C
 
 ###
 GET http://localhost/session/not-exist

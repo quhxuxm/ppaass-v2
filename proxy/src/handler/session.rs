@@ -24,8 +24,7 @@ pub async fn get_session(
         .get(&session_token)
         .ok_or(ProxyError::SessionNotExist(session_token.clone()))?;
     let mut get_session_response_builder = GetSessionResponseBuilder::default();
-    get_session_response_builder.session_token(session_token);
-    get_session_response_builder.auth_token(session.auth_token().to_owned());
+    get_session_response_builder.session_token(session_token).auth_token(session.auth_token().to_owned()).relay_infos(session.relays().to_owned());
     let get_session_response = get_session_response_builder.build()?;
     Ok(Json(get_session_response))
 }
@@ -40,8 +39,7 @@ pub async fn get_all_sessions(
         .iter()
         .filter_map(|(k, v)| {
             let mut get_session_response_builder = GetSessionResponseBuilder::default();
-            get_session_response_builder.session_token(k.to_owned());
-            get_session_response_builder.auth_token(v.auth_token().to_owned());
+            get_session_response_builder.session_token(k.to_owned()).auth_token(v.auth_token().to_owned()).relay_infos(v.relays().to_owned());
             let get_session_response = match get_session_response_builder.build() {
                 Ok(response) => response,
                 Err(e) => {
