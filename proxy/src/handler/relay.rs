@@ -241,9 +241,9 @@ pub async fn relay(
         "Receive websocket upgrade request."
     );
     ws_upgrade.on_upgrade(|ws| async move {
-        let (agent_encryption, proxy_encryption) = {
+        let (agent_encryption, proxy_encryption, relay_info) = {
             let session_repository = server_state.session_repository();
-            let session_repository = match session_repository.lock() {
+            let mut session_repository = match session_repository.lock() {
                 Ok(session_repository) => session_repository,
                 Err(_) => {
                     error!(
@@ -254,25 +254,27 @@ pub async fn relay(
                     return;
                 }
             };
-            let Some(session) = session_repository.get(&session_token) else {
+            let Some(session) = session_repository.get_mut(&session_token) else {
                 return;
             };
-            (
-                session.agent_encryption().clone(),
-                session.proxy_encryption().clone(),
-            )
-        };
-        let relay_info = match parse_relay_info(relay_info_token.clone(), &agent_encryption) {
-            Ok(relay_info) => relay_info,
-            Err(e) => {
-                error!(
+            let relay_info = match parse_relay_info(relay_info_token.clone(), session.agent_encryption()) {
+                Ok(relay_info) => relay_info,
+                Err(e) => {
+                    error!(
                     session_token = { &session_token },
                     relay_info_token = { &relay_info_token },
                     "Fail to parse relay info: {}",
                     e
                 );
-                return;
-            }
+                    return;
+                }
+            };
+            session.relays_mut().push(relay_info.clone());
+            (
+                session.agent_encryption().clone(),
+                session.proxy_encryption().clone(),
+                relay_info
+            )
         };
         debug!(
             session_token = { &session_token },

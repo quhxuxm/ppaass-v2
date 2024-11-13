@@ -1,5 +1,6 @@
 use accessory::Accessors;
 use derive_builder::Builder;
+use ppaass_domain::relay::RelayInfo;
 use ppaass_domain::session::Encryption;
 #[derive(Debug, Clone, Accessors, Builder)]
 pub struct Session {
@@ -11,4 +12,6 @@ pub struct Session {
     agent_encryption: Encryption,
     #[access(get)]
     proxy_encryption: Encryption,
+    #[access(get_mut)]
+    relays: Vec<RelayInfo>,
 }
