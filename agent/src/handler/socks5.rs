@@ -1,10 +1,9 @@
 use crate::bo::config::Config;
 use crate::error::AgentError;
 use crate::handler::HandlerRequest;
-use crate::HttpClient;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::address::UnifiedAddress;
@@ -16,7 +15,6 @@ use socks5_impl::protocol::{
     Address, AsyncStreamOperation, AuthMethod, Command, Reply, Request as Socks5Request, Response,
 };
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::codec::{BytesCodec, Framed};
 use tracing::{debug, error};
 fn generate_relay_info_token(
