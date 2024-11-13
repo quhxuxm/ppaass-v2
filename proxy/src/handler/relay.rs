@@ -16,7 +16,6 @@ use ppaass_domain::relay::{RelayInfo, RelayType};
 use ppaass_domain::session::Encryption;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::net::TcpStream;
 use tracing::{debug, error};
 struct RelayAgentToDestValues {
     agent_encryption: Encryption,
@@ -275,6 +274,10 @@ pub async fn relay(
                 return;
             }
         };
+        debug!(
+            session_token = { &session_token },
+            relay_info_token = { &relay_info_token },
+            "Going to relay data for: {relay_info:?}");
         let dst_address = relay_info.dst_address().clone();
         let dst_addresses: Vec<SocketAddr> = match dst_address.try_into() {
             Ok(dst_addresses) => dst_addresses,
@@ -289,20 +292,29 @@ pub async fn relay(
             }
         };
         let dest_transport = match relay_info.relay_type() {
-            RelayType::Tcp => match TcpStream::connect(dst_addresses.as_slice()).await {
-                Ok(tcp_stream) => DestinationTransport::new_tcp(tcp_stream),
+            RelayType::Tcp => match DestinationTransport::new_tcp(dst_addresses).await {
+                Ok(dest_transport) => dest_transport,
                 Err(e) => {
                     error!(
                         session_token = { &session_token },
                         relay_info_token = { &relay_info_token },
-                        "Fail to connect destination: {}",
-                        e
-                    );
+                        "Fail to connect destination with tcp: {}",
+                        e);
                     return;
                 }
             },
             RelayType::Udp => {
-                todo!()
+                match DestinationTransport::new_udp(dst_addresses).await {
+                    Ok(dest_transport) => dest_transport,
+                    Err(e) => {
+                        error!(
+                        session_token = { &session_token },
+                        relay_info_token = { &relay_info_token },
+                        "Fail to connect destination with udp: {}",
+                        e);
+                        return;
+                    }
+                }
             }
         };
         let (dest_transport_write, dest_transport_read) = dest_transport.split();
