@@ -29,7 +29,6 @@ bytes = { workspace = true }
 derive_builder = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-uuid = { workspace = true, features = ["v4"] }
 tokio-tungstenite = { workspace = true }
 hex = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }

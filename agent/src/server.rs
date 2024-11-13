@@ -7,16 +7,14 @@ use crate::handler::socks5::handle_socks5_client_tcp_stream;
 use crate::handler::HandlerRequest;
 use crate::{publish_server_event, HttpClient};
 use bytes::Bytes;
-use futures_util::SinkExt;
 use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::{RsaCrypto, RsaCryptoFetcher};
 use ppaass_domain::session::{CreateSessionRequestBuilder, CreateSessionResponse, Encryption};
-use reqwest_websocket::{Message, RequestBuilderExt};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
-use tracing::{debug, error};
+use tracing::error;
 const SOCKS5_VERSION: u8 = 0x05;
 const SOCKS4_VERSION: u8 = 0x04;
 pub struct AgentServer {
@@ -107,7 +105,6 @@ impl AgentServer {
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
-            let rsa_crypto = rsa_crypto.clone();
             let agent_aes_token = agent_aes_token.clone();
             let config = config.clone();
             let session_token = session_token.clone();
@@ -121,7 +118,6 @@ impl AgentServer {
                         proxy_encryption,
                         http_client,
                         client_socket_addr,
-                        rsa_crypto,
                         agent_encryption: Encryption::Aes(agent_aes_token),
                     },
                 )

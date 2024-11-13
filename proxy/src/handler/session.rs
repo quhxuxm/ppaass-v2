@@ -5,12 +5,13 @@ use axum::extract::{Path, State};
 use axum::Json;
 use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::RsaCryptoFetcher;
+use ppaass_domain::generate_uuid;
 use ppaass_domain::session::{
     CreateSessionRequest, CreateSessionResponse, CreateSessionResponseBuilder, Encryption,
     GetSessionResponse, GetSessionResponseBuilder,
 };
 use std::sync::Arc;
-use uuid::Uuid;
+use tracing::error;
 pub async fn get_session(
     State(server_state): State<Arc<ServerState>>,
     Path(session_token): Path<String>,
@@ -43,7 +44,8 @@ pub async fn get_all_sessions(
             get_session_response_builder.auth_token(v.auth_token().to_owned());
             let get_session_response = match get_session_response_builder.build() {
                 Ok(response) => response,
-                Err(_) => {
+                Err(e) => {
+                    error!(session_token={k}, "Fail to build get session response: {e:?}");
                     return None;
                 }
             };
@@ -62,7 +64,7 @@ pub async fn create_session(
         .ok_or(ProxyError::RsaCryptoNotExist(
             create_session_request.auth_token().to_owned(),
         ))?;
-    let session_token = Uuid::new_v4().to_string();
+    let session_token = generate_uuid();
     let random_raw_proxy_aes_token = random_32_bytes();
     let agent_encryption = match create_session_request.agent_encryption() {
         Encryption::Plain => Encryption::Plain,

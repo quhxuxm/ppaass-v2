@@ -4,7 +4,7 @@ use crate::destination::write::DestinationTransportWrite;
 use crate::destination::DestinationTransport;
 use crate::error::ProxyError;
 use axum::extract::ws::{CloseFrame, Message, WebSocket};
-use axum::extract::{Path, Query, State, WebSocketUpgrade};
+use axum::extract::{Path, State, WebSocketUpgrade};
 use axum::response::Response;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -14,47 +14,56 @@ use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::relay::{RelayInfo, RelayType};
 use ppaass_domain::session::Encryption;
-use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tracing::{debug, error};
-#[derive(Deserialize)]
-pub struct RelayUpgradeParam {
+struct RelayAgentToDestValues {
+    agent_encryption: Encryption,
+    ws_read: SplitStream<WebSocket>,
+    dest_transport_write: DestinationTransportWrite,
     session_token: String,
+    relay_info_token: String,
 }
 async fn relay_agent_to_dest(
-    agent_encryption: Encryption,
-    mut ws_read: SplitStream<WebSocket>,
-    mut dest_transport_write: DestinationTransportWrite,
+    RelayAgentToDestValues {
+        agent_encryption,
+        mut ws_read,
+        mut dest_transport_write,
+        session_token,
+        relay_info_token
+    }: RelayAgentToDestValues
 ) {
     loop {
         let agent_data = ws_read.next().await;
         let agent_data = match agent_data {
             None => return,
-            Some(Err(e)) => return,
+            Some(Err(e)) => {
+                error!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Fail to read client data: {e:?}");
+                return;
+            }
             Some(Ok(agent_data)) => agent_data,
         };
         let agent_data = match agent_data {
             Message::Text(text_message) => {
-                debug!("Received text message from agent: {text_message}" );
+                debug!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Received text message from agent: {text_message}" );
                 continue;
             }
             Message::Binary(agent_data) => agent_data,
             Message::Ping(ping_data) => {
-                debug!("Received ping message from agent:\n{}", pretty_hex::pretty_hex(&ping_data) );
+                debug!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Received ping message from agent:\n{}", pretty_hex::pretty_hex(&ping_data) );
                 continue;
             }
             Message::Pong(pong_data) => {
-                debug!("Received pong message from agent:\n{}", pretty_hex::pretty_hex(&pong_data) );
+                debug!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Received pong message from agent:\n{}", pretty_hex::pretty_hex(&pong_data) );
                 continue;
             }
             Message::Close(Some(CloseFrame { code, reason })) => {
-                debug!("Received close message from agent with code: {code}, reason: {reason}");
+                debug!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Received close message from agent with code: {code}, reason: {reason}");
                 return;
             }
             Message::Close(None) => {
-                debug!("Received close message from agent without any information.");
+                debug!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Received close message from agent without any information.");
                 return;
             }
         };
@@ -64,6 +73,7 @@ async fn relay_agent_to_dest(
                 match decrypt_with_aes(aes_token, &agent_data) {
                     Ok(decrypted_agent_data) => decrypted_agent_data,
                     Err(e) => {
+                        error!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Fail to aes decrypt agent data: {e:?}");
                         continue;
                     }
                 }
@@ -71,45 +81,62 @@ async fn relay_agent_to_dest(
         };
         let decrypted_agent_data = BytesMut::from(decrypted_agent_data.as_slice());
         if let Err(e) = dest_transport_write.send(decrypted_agent_data).await {
+            error!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Fail to send agent data to destination: {e:?}");
             return;
         }
     }
 }
-async fn relay_dest_to_agent(
+struct RelayDestToAgentValues {
     proxy_encryption: Encryption,
-    mut ws_write: SplitSink<WebSocket, Message>,
-    mut dest_transport_read: DestinationTransportRead,
+    ws_write: SplitSink<WebSocket, Message>,
+    dest_transport_read: DestinationTransportRead,
+    session_token: String,
+    relay_info_token: String,
+}
+async fn relay_dest_to_agent(
+    RelayDestToAgentValues {
+        proxy_encryption,
+        mut ws_write,
+        mut dest_transport_read,
+        session_token,
+        relay_info_token,
+    }: RelayDestToAgentValues
 ) {
     loop {
         let dest_data = dest_transport_read.next().await;
         let dest_data = match dest_data {
             None => return,
-            Some(Err(e)) => return,
+            Some(Err(e)) => {
+                error!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Fail to receive destination data: {e:?}");
+                return;
+            }
             Some(Ok(dest_data)) => dest_data,
         };
         let dest_data = match &proxy_encryption {
             Encryption::Plain => dest_data.into(),
             Encryption::Aes(aes_token) => match encrypt_with_aes(aes_token, &dest_data) {
                 Ok(dest_data) => dest_data,
-                Err(_) => {
+                Err(e) => {
+                    error!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Fail to aes encrypt destination data: {e:?}");
                     return;
                 }
             },
         };
         let dest_data = Message::Binary(dest_data);
         if let Err(e) = ws_write.send(dest_data).await {
+            error!(session_token={&session_token}, relay_info_token={&relay_info_token}, "Fail to send destination data to agent: {e:?}");
             return;
         }
     }
 }
 pub async fn relay(
-    Path((session_token, relay_info)): Path<(String, String)>,
+    Path((session_token, relay_info_token)): Path<(String, String)>,
     ws_upgrade: WebSocketUpgrade,
     State(server_state): State<Arc<ServerState>>,
 ) -> Response {
     debug!(
         session_token = { session_token.clone() },
-        relay_info = { relay_info.clone() },
+        relay_info_token = { relay_info_token.clone() },
         "Receive websocket upgrade request."
     );
     ws_upgrade.on_upgrade(|ws| async move {
@@ -134,7 +161,7 @@ pub async fn relay(
                 session.proxy_encryption().clone(),
             )
         };
-        let relay_info = match parse_relay_info(relay_info, &agent_encryption) {
+        let relay_info = match parse_relay_info(relay_info_token.clone(), &agent_encryption) {
             Ok(relay_info) => relay_info,
             Err(e) => {
                 error!(
@@ -178,15 +205,27 @@ pub async fn relay(
         };
         let (dest_transport_write, dest_transport_read) = dest_transport.split();
         let (ws_write, ws_read) = ws.split();
-        tokio::spawn(relay_agent_to_dest(
-            agent_encryption,
-            ws_read,
-            dest_transport_write,
-        ));
+        {
+            let session_token = session_token.clone();
+            let relay_info_token = relay_info_token.clone();
+            tokio::spawn(relay_agent_to_dest(
+                RelayAgentToDestValues {
+                    agent_encryption,
+                    ws_read,
+                    dest_transport_write,
+                    session_token,
+                    relay_info_token,
+                }
+            ));
+        }
         tokio::spawn(relay_dest_to_agent(
-            proxy_encryption,
-            ws_write,
-            dest_transport_read,
+            RelayDestToAgentValues {
+                proxy_encryption,
+                ws_write,
+                dest_transport_read,
+                session_token,
+                relay_info_token,
+            }
         ));
     })
 }
@@ -194,7 +233,7 @@ fn parse_relay_info(
     relay_info: String,
     agent_encryption: &Encryption,
 ) -> Result<RelayInfo, ProxyError> {
-    let relay_info = hex::decode(relay_info)?;
+    let relay_info = hex::decode(relay_info.to_lowercase())?;
     let relay_info = BASE64_STANDARD.decode(relay_info)?;
     let relay_info = match &agent_encryption {
         Encryption::Plain => relay_info,
