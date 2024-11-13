@@ -81,7 +81,8 @@ pub async fn create_session(
         .session_token(session_token.clone())
         .agent_encryption(agent_encryption)
         .auth_token(create_session_request.auth_token().to_owned())
-        .proxy_encryption(proxy_encryption.clone());
+        .proxy_encryption(proxy_encryption.clone())
+        .relays(vec![]);
     let session = session_builder.build()?;
     let mut session_repository = server_state
         .session_repository()
