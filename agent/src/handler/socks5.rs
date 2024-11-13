@@ -9,7 +9,7 @@ use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::relay::{RelayInfo, RelayInfoBuilder, RelayType};
 use ppaass_domain::session::Encryption;
-use reqwest_websocket::{Error, Message, RequestBuilderExt};
+use reqwest_websocket::{Message, RequestBuilderExt};
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
     Address, AsyncStreamOperation, AuthMethod, Command, Reply, Request as Socks5Request, Response,
