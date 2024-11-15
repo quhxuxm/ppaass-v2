@@ -3,20 +3,14 @@ use crate::error::AgentError;
 use crate::handler::{
     generate_relay_websocket, relay_proxy_data, HandlerRequest, RelayProxyDataRequest,
 };
-use bytes::BytesMut;
-use futures_util::{SinkExt, StreamExt};
-use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::relay::{RelayInfoBuilder, RelayType};
-use ppaass_domain::session::Encryption;
-use reqwest_websocket::Message;
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
     Address, AsyncStreamOperation, AuthMethod, Command, Reply, Request as Socks5Request, Response,
 };
 use std::sync::Arc;
-use tokio_util::codec::{BytesCodec, Framed};
-use tracing::{debug, error};
+use tracing::debug;
 pub async fn handle_socks5_client_tcp_stream(
     config: Arc<Config>,
     request: HandlerRequest,
