@@ -60,6 +60,13 @@ async fn generate_relay_websocket(
     Ok((relay_ws, relay_info_token))
 }
 
+fn encrypt_agent_data(data: Bytes, agent_encryption: &Encryption) -> Result<Vec<u8>, AgentError> {
+    match &agent_encryption {
+        Encryption::Plain => Ok(data.to_vec()),
+        Encryption::Aes(aes_token) => Ok(encrypt_with_aes(aes_token, &data)?),
+    }
+}
+
 struct RelayProxyDataRequest {
     client_tcp_stream: TcpStream,
     proxy_websocket: WebSocket,
@@ -89,23 +96,18 @@ async fn relay_proxy_data(
         let relay_info_token = relay_info_token.clone();
         tokio::spawn(async move {
             if let Some(initial_data) = initial_data {
-                let initial_data = match &agent_encryption {
-                    Encryption::Plain => initial_data.to_vec(),
-                    Encryption::Aes(aes_token) => {
-                        match encrypt_with_aes(aes_token, &initial_data) {
-                            Ok(client_data) => client_data,
-                            Err(e) => {
-                                error!(
-                                    session_token = { &session_token },
-                                    relay_info = { &relay_info_token },
-                                    "Fail to aes encrypt client data: {e:?}"
-                                );
-                                if let Err(e) = proxy_ws_write.close().await {
-                                    error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
-                                };
-                                return;
-                            }
-                        }
+                let initial_data = match encrypt_agent_data(initial_data, &agent_encryption) {
+                    Ok(initial_data) => initial_data,
+                    Err(e) => {
+                        error!(
+                            session_token = { &session_token },
+                            relay_info = { &relay_info_token },
+                            "Fail to aes encrypt client data: {e:?}"
+                        );
+                        if let Err(e) = proxy_ws_write.close().await {
+                            error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
+                        };
+                        return;
                     }
                 };
                 if let Err(e) = proxy_ws_write.send(Message::Binary(initial_data)).await {
@@ -147,24 +149,21 @@ async fn relay_proxy_data(
                         return;
                     }
                 };
-                let client_data = match &agent_encryption {
-                    Encryption::Plain => client_data.to_vec(),
-                    Encryption::Aes(aes_token) => match encrypt_with_aes(aes_token, &client_data) {
-                        Ok(client_data) => client_data,
-                        Err(e) => {
-                            error!(
-                                session_token = { &session_token },
-                                relay_info = { &relay_info_token },
-                                "Fail to aes encrypt client data: {e:?}"
-                            );
-                            if let Err(e) = proxy_ws_write.close().await {
-                                error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
-                            };
-                            return;
-                        }
-                    },
+                let client_data = match encrypt_agent_data(client_data.freeze(), &agent_encryption)
+                {
+                    Ok(client_data) => client_data,
+                    Err(e) => {
+                        error!(
+                            session_token = { &session_token },
+                            relay_info = { &relay_info_token },
+                            "Fail to aes encrypt client data: {e:?}"
+                        );
+                        if let Err(e) = proxy_ws_write.close().await {
+                            error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
+                        };
+                        return;
+                    }
                 };
-
                 if let Err(e) = proxy_ws_write.send(Message::Binary(client_data)).await {
                     error!(
                         session_token = { &session_token },
