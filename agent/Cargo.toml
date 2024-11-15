@@ -37,3 +37,4 @@ reqwest-websocket = { workspace = true }
 pretty-hex = { workspace = true }
 httpcodec = { workspace = true }
 bytecodec = { workspace = true }
+url = { workspace = true }

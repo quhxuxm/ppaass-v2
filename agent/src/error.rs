@@ -25,4 +25,10 @@ pub enum AgentError {
     RelayInfoBuilder(#[from] RelayInfoBuilderError),
     #[error(transparent)]
     Domain(#[from] DomainError),
+    #[error(transparent)]
+    ByteCodec(#[from] bytecodec::Error),
+    #[error(transparent)]
+    ParseUrl(#[from] url::ParseError),
+    #[error("Unknown host from target url")]
+    UnknownHostFromTargetUrl(String),
 }

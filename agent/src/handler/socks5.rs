@@ -1,13 +1,13 @@
 use crate::bo::config::Config;
 use crate::error::AgentError;
-use crate::handler::{generate_relay_info_token, HandlerRequest};
+use crate::handler::{generate_relay_websocket, HandlerRequest};
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::relay::{RelayInfoBuilder, RelayType};
 use ppaass_domain::session::Encryption;
-use reqwest_websocket::{Message, RequestBuilderExt};
+use reqwest_websocket::Message;
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
     Address, AsyncStreamOperation, AuthMethod, Command, Reply, Request as Socks5Request, Response,
@@ -59,19 +59,7 @@ pub async fn handle_socks5_client_tcp_stream(
                     relay_info_builder.build()?
                 }
             };
-            let relay_info_token =
-                generate_relay_info_token(relay_info.clone(), &agent_encryption)?;
-            let relay_url = format!(
-                "{}/{}/{}",
-                config.proxy_relay_entry(),
-                session_token,
-                relay_info_token
-            );
-            debug!("Begin to create relay websocket on proxy (GET): {relay_url}");
-            let relay_upgrade_connection = http_client.get(&relay_url).upgrade().send().await?;
-            debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {relay_url}");
-            let relay_ws = relay_upgrade_connection.into_websocket().await?;
-            debug!("Create relay connection websocket on proxy success: {relay_url}");
+            let (relay_ws, relay_info_token) = generate_relay_websocket(&session_token, relay_info, &agent_encryption, &config, &http_client).await?;
             let init_response = Response::new(Reply::Succeeded, init_request.address);
             init_response
                 .write_to_async_stream(&mut client_tcp_stream)
