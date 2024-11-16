@@ -4,3 +4,4 @@ dst_read_timeout = 120000
 dst_write_timeout = 120000
 rsa_dir = "resources/rsa"
 max_log_level = "DEBUG"
+dst_buffer_size = 8388608
