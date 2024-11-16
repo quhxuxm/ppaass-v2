@@ -1,5 +1,6 @@
 pub mod read;
 pub mod write;
+use crate::bo::config::Config;
 use crate::destination::read::DestinationTransportRead;
 use crate::destination::write::DestinationTransportWrite;
 use crate::error::ProxyError;
@@ -7,16 +8,28 @@ use bytes::BytesMut;
 use futures_util::StreamExt;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::{TcpStream, UdpSocket};
+use tokio_io_timeout::TimeoutStream;
 use tokio_util::codec::{BytesCodec, Framed};
 pub enum DestinationTransport {
-    Tcp(Framed<TcpStream, BytesCodec>),
+    Tcp(Framed<TimeoutStream<TcpStream>, BytesCodec>),
     Udp(UdpSocket),
 }
 impl DestinationTransport {
-    pub async fn new_tcp(dst_addresses: Vec<SocketAddr>) -> Result<Self, ProxyError> {
+    pub async fn new_tcp(
+        dst_addresses: Vec<SocketAddr>,
+        config: Arc<Config>,
+    ) -> Result<Self, ProxyError> {
         let dst_tcp_stream = TcpStream::connect(dst_addresses.as_slice()).await?;
-        Ok(DestinationTransport::Tcp(Framed::with_capacity(dst_tcp_stream, BytesCodec::new(), 1024 * 1024 * 64)))
+        let mut dst_tcp_stream = TimeoutStream::new(dst_tcp_stream);
+        dst_tcp_stream.set_read_timeout(Some(Duration::from_secs(*config.dst_read_timeout())));
+        dst_tcp_stream.set_write_timeout(Some(Duration::from_secs(*config.dst_write_timeout())));
+        Ok(DestinationTransport::Tcp(Framed::with_capacity(
+            dst_tcp_stream,
+            BytesCodec::new(),
+            *config.dst_buffer_size(),
+        )))
     }
     pub async fn new_udp(dst_addresses: Vec<SocketAddr>) -> Result<Self, ProxyError> {
         let dst_udp_socket = UdpSocket::bind("0.0.0.0:0").await?;
@@ -34,7 +47,10 @@ impl DestinationTransport {
             }
             DestinationTransport::Udp(udp_socket) => {
                 let udp_socket = Arc::new(udp_socket);
-                (DestinationTransportWrite::Udp(udp_socket.clone()), DestinationTransportRead::Udp(udp_socket))
+                (
+                    DestinationTransportWrite::Udp(udp_socket.clone()),
+                    DestinationTransportRead::Udp(udp_socket),
+                )
             }
         }
     }

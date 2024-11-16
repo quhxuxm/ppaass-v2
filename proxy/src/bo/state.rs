@@ -1,10 +1,12 @@
 use crate::bo::config::Config;
+use crate::bo::event::ProxyServerEvent;
 use crate::bo::session::Session;
 use crate::crypto::ProxyRsaCryptoFetcher;
 use accessory::Accessors;
 use derive_builder::Builder;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc::Sender;
 #[derive(Clone, Accessors, Builder)]
 pub struct ServerState {
     #[access(get)]
@@ -13,4 +15,6 @@ pub struct ServerState {
     rsa_crypto_fetcher: Arc<ProxyRsaCryptoFetcher>,
     #[access(get)]
     session_repository: Arc<Mutex<HashMap<String, Session>>>,
+    #[access(get)]
+    server_event_tx: Arc<Sender<ProxyServerEvent>>,
 }

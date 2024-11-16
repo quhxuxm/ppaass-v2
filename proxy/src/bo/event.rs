@@ -4,4 +4,6 @@ pub enum ProxyServerEvent {
     ServerStartFail,
     ServerTcpBind,
     AgentTcpConnected,
+    SessionStarted(String),
+    SessionClosed(String),
 }

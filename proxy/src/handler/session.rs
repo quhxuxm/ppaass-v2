@@ -1,6 +1,8 @@
+use crate::bo::event::ProxyServerEvent;
 use crate::bo::session::SessionBuilder;
 use crate::bo::state::ServerState;
 use crate::error::ProxyError;
+use crate::publish_server_event;
 use axum::extract::{Path, State};
 use axum::Json;
 use chrono::Utc;
@@ -62,6 +64,8 @@ pub async fn get_all_sessions(
         .collect::<Vec<GetSessionResponse>>();
     Ok(Json(result))
 }
+
+// #[axum::debug_handler]
 pub async fn create_session(
     State(server_state): State<Arc<ServerState>>,
     Json(create_session_request): Json<CreateSessionRequest>,
@@ -92,11 +96,18 @@ pub async fn create_session(
         .update_time(session_creation_time)
         .relays(vec![]);
     let session = session_builder.build()?;
-    let mut session_repository = server_state
-        .session_repository()
-        .lock()
-        .map_err(|_| ProxyError::SessionRepositoryLock)?;
-    session_repository.insert(session.session_token().to_owned(), session);
+    {
+        let mut session_repository = server_state
+            .session_repository()
+            .lock()
+            .map_err(|_| ProxyError::SessionRepositoryLock)?;
+        session_repository.insert(session.session_token().to_owned(), session);
+    }
+    publish_server_event(
+        server_state.server_event_tx(),
+        ProxyServerEvent::SessionStarted(session_token.clone()),
+    )
+    .await;
     let proxy_encryption = Encryption::Aes(rsa_crypto.encrypt(&random_raw_proxy_aes_token)?.into());
     let mut create_session_response_builder = CreateSessionResponseBuilder::default();
     create_session_response_builder

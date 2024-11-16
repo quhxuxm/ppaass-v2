@@ -7,9 +7,10 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 use tokio::net::{TcpStream, UdpSocket};
+use tokio_io_timeout::TimeoutStream;
 use tokio_util::codec::{BytesCodec, Framed};
 pub enum DestinationTransportRead {
-    Tcp(SplitStream<Framed<TcpStream, BytesCodec>>),
+    Tcp(SplitStream<Framed<TimeoutStream<TcpStream>, BytesCodec>>),
     Udp(Arc<UdpSocket>),
 }
 impl Stream for DestinationTransportRead {
@@ -23,7 +24,7 @@ impl Stream for DestinationTransportRead {
                 match inner_udp_socket.poll_recv(cx, &mut read_buf) {
                     Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(read_buf.filled().into()))),
                     Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
-                    Poll::Pending => Poll::Pending
+                    Poll::Pending => Poll::Pending,
                 }
             }
         }

@@ -12,11 +12,11 @@ pub struct Config {
     #[access(get)]
     dst_write_timeout: u64,
     #[access(get)]
-    agent_read_timeout: u64,
-    #[access(get)]
-    agent_write_timeout: u64,
+    dst_buffer_size: usize,
     #[access(get(ty(&std::path::Path)))]
     rsa_dir: PathBuf,
+    #[access(get(ty(&str)))]
+    max_log_level: String,
 }
 
 impl Default for Config {
@@ -26,8 +26,8 @@ impl Default for Config {
             worker_threads: 256,
             dst_read_timeout: 120000,
             dst_write_timeout: 120000,
-            agent_read_timeout: 120000,
-            agent_write_timeout: 120000,
+            dst_buffer_size: 1024 * 1024 * 8,
+            max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/rsa"),
         }
     }
