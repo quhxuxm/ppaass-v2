@@ -36,3 +36,4 @@ base64 = { workspace = true }
 pretty-hex = { workspace = true }
 chrono = { workspace = true }
 tokio-io-timeout = { workspace = true }
+mimalloc = { workspace = true }

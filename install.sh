@@ -53,7 +53,7 @@ sudo chmod 777 /ppaass-v2/build
 cd /ppaass-v2/build
 ls -l
 
-sudo chmod 777 ppaass-v2
+sudo chmod 777 ppaass-v2proxy
 sudo chmod 777 *.sh
 sudo dos2unix ./ppaass-proxy-start.sh
 

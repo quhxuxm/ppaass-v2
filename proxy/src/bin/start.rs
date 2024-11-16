@@ -9,6 +9,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::runtime::Builder;
 use tracing::{error, info, Level};
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
 pub fn main() -> Result<()> {
     let command = CommandArgs::parse();

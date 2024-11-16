@@ -42,4 +42,5 @@ bytecodec = "0.4.15"
 url = "2.5.3"
 axum-macros = "0.4.2"
 tokio-io-timeout = "1.2.0"
+mimalloc = "0.1.43"
 
