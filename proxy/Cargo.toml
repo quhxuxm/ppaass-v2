@@ -33,3 +33,4 @@ tokio-tungstenite = { workspace = true }
 hex = { workspace = true }
 base64 = { workspace = true }
 pretty-hex = { workspace = true }
+chrono = { workspace = true }

@@ -3,6 +3,7 @@ use crate::bo::state::ServerState;
 use crate::error::ProxyError;
 use axum::extract::{Path, State};
 use axum::Json;
+use chrono::Utc;
 use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::RsaCryptoFetcher;
 use ppaass_domain::generate_uuid;
@@ -24,7 +25,10 @@ pub async fn get_session(
         .get(&session_token)
         .ok_or(ProxyError::SessionNotExist(session_token.clone()))?;
     let mut get_session_response_builder = GetSessionResponseBuilder::default();
-    get_session_response_builder.session_token(session_token).auth_token(session.auth_token().to_owned()).relay_infos(session.relays().to_owned());
+    get_session_response_builder
+        .session_token(session_token)
+        .auth_token(session.auth_token().to_owned())
+        .relay_infos(session.relays().to_owned());
     let get_session_response = get_session_response_builder.build()?;
     Ok(Json(get_session_response))
 }
@@ -39,7 +43,10 @@ pub async fn get_all_sessions(
         .iter()
         .filter_map(|(k, v)| {
             let mut get_session_response_builder = GetSessionResponseBuilder::default();
-            get_session_response_builder.session_token(k.to_owned()).auth_token(v.auth_token().to_owned()).relay_infos(v.relays().to_owned());
+            get_session_response_builder
+                .session_token(k.to_owned())
+                .auth_token(v.auth_token().to_owned())
+                .relay_infos(v.relays().to_owned());
             let get_session_response = match get_session_response_builder.build() {
                 Ok(response) => response,
                 Err(e) => {
@@ -74,12 +81,15 @@ pub async fn create_session(
         }
     };
     let proxy_encryption = Encryption::Aes(random_raw_proxy_aes_token.clone());
+    let session_creation_time = Utc::now();
     let mut session_builder = SessionBuilder::default();
     session_builder
         .session_token(session_token.clone())
         .agent_encryption(agent_encryption)
         .auth_token(create_session_request.auth_token().to_owned())
         .proxy_encryption(proxy_encryption.clone())
+        .create_time(session_creation_time)
+        .update_time(session_creation_time)
         .relays(vec![]);
     let session = session_builder.build()?;
     let mut session_repository = server_state
