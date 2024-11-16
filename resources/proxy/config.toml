@@ -2,5 +2,5 @@ port = 8080
 worker_threads = 256
 dst_read_timeout = 120000
 dst_write_timeout = 120000
-rsa_dir = "resources/proxy/rsa"
+rsa_dir = "resources/rsa"
 max_log_level = "DEBUG"
