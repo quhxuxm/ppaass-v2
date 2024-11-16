@@ -4,6 +4,7 @@ use crate::HttpClient;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use bytes::{Bytes, BytesMut};
+use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::relay::RelayInfo;
@@ -67,6 +68,16 @@ fn encrypt_agent_data(data: Bytes, agent_encryption: &Encryption) -> Result<Vec<
     }
 }
 
+async fn write_to_proxy_websocket(
+    proxy_ws_write: &mut SplitSink<WebSocket, Message>,
+    data: Vec<u8>,
+) -> Result<(), AgentError> {
+    if let Err(e) = proxy_ws_write.send(Message::Binary(data)).await {
+        proxy_ws_write.close().await?;
+        return Err(e.into());
+    };
+    Ok(())
+}
 struct RelayProxyDataRequest {
     client_tcp_stream: TcpStream,
     proxy_websocket: WebSocket,
@@ -110,15 +121,12 @@ async fn relay_proxy_data(
                         return;
                     }
                 };
-                if let Err(e) = proxy_ws_write.send(Message::Binary(initial_data)).await {
+                if let Err(e) = write_to_proxy_websocket(&mut proxy_ws_write, initial_data).await {
                     error!(
                         session_token = { &session_token },
                         relay_info = { &relay_info_token },
                         "Fail write client data to proxy: {e:?}"
                     );
-                    if let Err(e) = proxy_ws_write.close().await {
-                        error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on write client data to proxy fail: {e:?}");
-                    };
                     return;
                 };
             }
@@ -164,15 +172,12 @@ async fn relay_proxy_data(
                         return;
                     }
                 };
-                if let Err(e) = proxy_ws_write.send(Message::Binary(client_data)).await {
+                if let Err(e) = write_to_proxy_websocket(&mut proxy_ws_write, client_data).await {
                     error!(
                         session_token = { &session_token },
                         relay_info = { &relay_info_token },
                         "Fail write client data to proxy: {e:?}"
                     );
-                    if let Err(e) = proxy_ws_write.close().await {
-                        error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on write client data to proxy fail: {e:?}");
-                    };
                     return;
                 };
             }
