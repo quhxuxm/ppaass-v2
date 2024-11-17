@@ -9,19 +9,15 @@ pub enum Encryption {
     Plain,
     Aes(Bytes),
 }
-#[derive(Deserialize, Serialize, Debug, Clone, Accessors, Builder)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CreateSessionRequest {
-    #[access(get)]
-    agent_encryption: Encryption,
-    #[access(get(ty(&str)))]
-    auth_token: String,
+    pub agent_encryption: Encryption,
+    pub auth_token: String,
 }
-#[derive(Deserialize, Serialize, Debug, Clone, Accessors, Builder)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CreateSessionResponse {
-    #[access(get)]
-    proxy_encryption: Encryption,
-    #[access(get(ty(&str)))]
-    session_token: String,
+    pub proxy_encryption: Encryption,
+    pub session_token: String,
 }
 #[derive(Deserialize, Serialize, Debug, Clone, Accessors, Builder)]
 pub struct GetSessionResponse {

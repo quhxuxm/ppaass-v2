@@ -7,8 +7,9 @@ use bytes::{Bytes, BytesMut};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
-use ppaass_domain::relay::RelayInfo;
+use ppaass_domain::relay::{RelayInfo, RelayUpgradeFailureReason};
 use ppaass_domain::session::Encryption;
+use reqwest::StatusCode;
 use reqwest_websocket::{Message, RequestBuilderExt, WebSocket};
 use std::net::SocketAddr;
 use tokio::net::TcpStream;
@@ -54,11 +55,17 @@ async fn generate_relay_websocket(
         relay_info_token
     );
     debug!("Begin to create relay websocket on proxy (GET): {relay_url}");
-    let relay_upgrade_connection = http_client.get(&relay_url).upgrade().send().await?;
-    debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {relay_url}");
-    let relay_ws = relay_upgrade_connection.into_websocket().await?;
-    debug!("Create relay connection websocket on proxy success: {relay_url}");
-    Ok((relay_ws, relay_info_token))
+    let relay_upgrade_response = http_client.get(&relay_url).upgrade().send().await?;
+    if StatusCode::INTERNAL_SERVER_ERROR == relay_upgrade_response.status() {
+        let failure_response_content = relay_upgrade_response.into_inner().text().await?;
+        let failure_reason = RelayUpgradeFailureReason::from(failure_response_content);
+        Err(AgentError::RelayWebSocketUpgrade(failure_reason))
+    } else {
+        debug!("Upgrade relay connection to websocket on proxy (UPGRADE): {relay_url}");
+        let relay_websocket = relay_upgrade_response.into_websocket().await?;
+        debug!("Create relay connection websocket on proxy success: {relay_url}");
+        Ok((relay_websocket, relay_info_token))
+    }
 }
 
 fn encrypt_agent_data(data: Bytes, agent_encryption: &Encryption) -> Result<Vec<u8>, AgentError> {

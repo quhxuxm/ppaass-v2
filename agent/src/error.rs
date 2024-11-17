@@ -1,7 +1,6 @@
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
-use ppaass_domain::relay::RelayInfoBuilderError;
-use ppaass_domain::session::CreateSessionRequestBuilderError;
+use ppaass_domain::relay::{RelayInfoBuilderError, RelayUpgradeFailureReason};
 use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AgentError {
@@ -20,8 +19,6 @@ pub enum AgentError {
     #[error("Rsa crypto not exist: {0}")]
     RsaCryptoNotExist(String),
     #[error(transparent)]
-    CreateSessionRequestBuilder(#[from] CreateSessionRequestBuilderError),
-    #[error(transparent)]
     RelayInfoBuilder(#[from] RelayInfoBuilderError),
     #[error(transparent)]
     Domain(#[from] DomainError),
@@ -31,4 +28,8 @@ pub enum AgentError {
     ParseUrl(#[from] url::ParseError),
     #[error("Unknown host from target url")]
     UnknownHostFromTargetUrl(String),
+    #[error("Fail to upgrade relay websocket: {0} ")]
+    RelayWebSocketUpgrade(RelayUpgradeFailureReason),
+    #[error("Fail to lock agent session")]
+    AgentSessionLock,
 }

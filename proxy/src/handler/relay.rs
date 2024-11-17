@@ -3,8 +3,10 @@ use crate::destination::read::DestinationTransportRead;
 use crate::destination::write::DestinationTransportWrite;
 use crate::destination::DestinationTransport;
 use crate::error::ProxyError;
+use axum::body::Body;
 use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use axum::extract::{Path, State, WebSocketUpgrade};
+use axum::http::StatusCode;
 use axum::response::Response;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -13,7 +15,7 @@ use chrono::Utc;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
-use ppaass_domain::relay::{RelayInfo, RelayType};
+use ppaass_domain::relay::{RelayInfo, RelayType, RelayUpgradeFailureReason};
 use ppaass_domain::session::Encryption;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -241,54 +243,63 @@ pub async fn relay(
     Path((session_token, relay_info_token)): Path<(String, String)>,
     ws_upgrade: WebSocketUpgrade,
     State(server_state): State<Arc<ServerState>>,
-) -> Response {
+) -> Result<Response, ProxyError> {
     debug!(
         session_token = { &session_token },
         relay_info_token = { &relay_info_token },
         "Receive websocket upgrade request."
     );
-
-    ws_upgrade.on_upgrade(|proxy_websocket| async move {
-        let (agent_encryption, proxy_encryption, relay_info) = {
-            let session_repository = server_state.session_repository();
-            let mut session_repository = match session_repository.lock() {
-                Ok(session_repository) => session_repository,
-                Err(_) => {
+    let (agent_encryption, proxy_encryption, relay_info) = {
+        let session_repository = server_state.session_repository();
+        let mut session_repository = match session_repository.lock() {
+            Ok(session_repository) => session_repository,
+            Err(_) => {
+                error!(
+                    session_token = { &session_token },
+                    relay_info_token = { &relay_info_token },
+                    "Fail to acquire session repository lock for session"
+                );
+                return Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(RelayUpgradeFailureReason::Other.to_string()))?);
+            }
+        };
+        let session = match session_repository.get_mut(&session_token) {
+            None => {
+                return Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(
+                        RelayUpgradeFailureReason::SessionNotFound.to_string(),
+                    ))?);
+            }
+            Some(session) => {
+                session.set_update_time(Utc::now());
+                session
+            }
+        };
+        let relay_info =
+            match parse_relay_info(relay_info_token.clone(), session.agent_encryption()) {
+                Ok(relay_info) => relay_info,
+                Err(e) => {
                     error!(
                         session_token = { &session_token },
                         relay_info_token = { &relay_info_token },
-                        "Fail to acquire session repository lock for session"
+                        "Fail to parse relay info: {}",
+                        e
                     );
-                    return;
+                    return Ok(Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from(RelayUpgradeFailureReason::Other.to_string()))?);
                 }
             };
-            let session = match session_repository.get_mut(&session_token) {
-                None => return,
-                Some(session) => {
-                    session.set_update_time(Utc::now());
-                    session
-                }
-            };
-            let relay_info =
-                match parse_relay_info(relay_info_token.clone(), session.agent_encryption()) {
-                    Ok(relay_info) => relay_info,
-                    Err(e) => {
-                        error!(
-                            session_token = { &session_token },
-                            relay_info_token = { &relay_info_token },
-                            "Fail to parse relay info: {}",
-                            e
-                        );
-                        return;
-                    }
-                };
-            session.relays_mut().push(relay_info.clone());
-            (
-                session.agent_encryption().clone(),
-                session.proxy_encryption().clone(),
-                relay_info,
-            )
-        };
+        session.relays_mut().push(relay_info.clone());
+        (
+            session.agent_encryption().clone(),
+            session.proxy_encryption().clone(),
+            relay_info,
+        )
+    };
+    Ok(ws_upgrade.on_upgrade(|proxy_websocket| async move {
         debug!(
             session_token = { &session_token },
             relay_info_token = { &relay_info_token },
@@ -338,7 +349,6 @@ pub async fn relay(
             },
         };
         let (dest_transport_write, dest_transport_read) = dest_transport.split();
-
         let (proxy_websocket_write, proxy_websocket_read) = proxy_websocket.split();
         {
             let session_token = session_token.clone();
@@ -358,7 +368,7 @@ pub async fn relay(
             session_token,
             relay_info_token,
         }));
-    })
+    }))
 }
 fn parse_relay_info(
     relay_info: String,

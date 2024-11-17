@@ -10,8 +10,8 @@ use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::RsaCryptoFetcher;
 use ppaass_domain::generate_uuid;
 use ppaass_domain::session::{
-    CreateSessionRequest, CreateSessionResponse, CreateSessionResponseBuilder, Encryption,
-    GetSessionResponse, GetSessionResponseBuilder,
+    CreateSessionRequest, CreateSessionResponse, Encryption, GetSessionResponse,
+    GetSessionResponseBuilder,
 };
 use std::sync::Arc;
 use tracing::error;
@@ -68,17 +68,18 @@ pub async fn get_all_sessions(
 // #[axum::debug_handler]
 pub async fn create_session(
     State(server_state): State<Arc<ServerState>>,
-    Json(create_session_request): Json<CreateSessionRequest>,
+    Json(CreateSessionRequest {
+        agent_encryption,
+        auth_token,
+    }): Json<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, ProxyError> {
     let rsa_crypto_fetcher = server_state.rsa_crypto_fetcher();
     let rsa_crypto = rsa_crypto_fetcher
-        .fetch(create_session_request.auth_token())?
-        .ok_or(ProxyError::RsaCryptoNotExist(
-            create_session_request.auth_token().to_owned(),
-        ))?;
+        .fetch(&auth_token)?
+        .ok_or(ProxyError::RsaCryptoNotExist(auth_token.clone()))?;
     let session_token = generate_uuid();
     let random_raw_proxy_aes_token = random_32_bytes();
-    let agent_encryption = match create_session_request.agent_encryption() {
+    let agent_encryption = match &agent_encryption {
         Encryption::Plain => Encryption::Plain,
         Encryption::Aes(rsa_encrypted_aes_token) => {
             Encryption::Aes(rsa_crypto.decrypt(rsa_encrypted_aes_token)?.into())
@@ -90,7 +91,7 @@ pub async fn create_session(
     session_builder
         .session_token(session_token.clone())
         .agent_encryption(agent_encryption)
-        .auth_token(create_session_request.auth_token().to_owned())
+        .auth_token(auth_token)
         .proxy_encryption(proxy_encryption.clone())
         .create_time(session_creation_time)
         .update_time(session_creation_time)
@@ -109,10 +110,8 @@ pub async fn create_session(
     )
     .await;
     let proxy_encryption = Encryption::Aes(rsa_crypto.encrypt(&random_raw_proxy_aes_token)?.into());
-    let mut create_session_response_builder = CreateSessionResponseBuilder::default();
-    create_session_response_builder
-        .proxy_encryption(proxy_encryption)
-        .session_token(session_token);
-    let create_session_response = create_session_response_builder.build()?;
-    Ok(Json(create_session_response))
+    Ok(Json(CreateSessionResponse {
+        proxy_encryption,
+        session_token,
+    }))
 }

@@ -1,12 +1,13 @@
 use crate::bo::session::SessionBuilderError;
 use crate::bo::state::ServerStateBuilderError;
+use axum::http;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use base64::DecodeError;
 use hex::FromHexError;
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
-use ppaass_domain::session::{CreateSessionResponseBuilderError, GetSessionResponseBuilderError};
+use ppaass_domain::session::GetSessionResponseBuilderError;
 use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ProxyError {
@@ -33,8 +34,6 @@ pub enum ProxyError {
     #[error(transparent)]
     SessionBuilder(#[from] SessionBuilderError),
     #[error(transparent)]
-    CreateSessionResponseBuilder(#[from] CreateSessionResponseBuilderError),
-    #[error(transparent)]
     GetSessionResponseBuilder(#[from] GetSessionResponseBuilderError),
     #[error(transparent)]
     ServerStateBuilder(#[from] ServerStateBuilderError),
@@ -42,6 +41,8 @@ pub enum ProxyError {
     FromHex(#[from] FromHexError),
     #[error(transparent)]
     Base64Decode(#[from] DecodeError),
+    #[error(transparent)]
+    Http(#[from] http::Error),
 }
 
 impl IntoResponse for ProxyError {

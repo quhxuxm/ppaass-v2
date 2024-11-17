@@ -4,6 +4,7 @@ use accessory::Accessors;
 use bytes::Bytes;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum RelayType {
     Tcp,
@@ -48,5 +49,30 @@ impl TryFrom<RelayInfo> for Vec<u8> {
     fn try_from(value: RelayInfo) -> Result<Self, Self::Error> {
         let result = bincode::serialize(&value)?;
         Ok(result)
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum RelayUpgradeFailureReason {
+    Other,
+    SessionNotFound,
+}
+
+impl Display for RelayUpgradeFailureReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RelayUpgradeFailureReason::Other => write!(f, "INTERNAL"),
+            RelayUpgradeFailureReason::SessionNotFound => write!(f, "SESSION_NOT_FOUND"),
+        }
+    }
+}
+
+impl From<String> for RelayUpgradeFailureReason {
+    fn from(value: String) -> Self {
+        if value.to_uppercase().eq(&Self::SessionNotFound.to_string()) {
+            Self::SessionNotFound
+        } else {
+            Self::Other
+        }
     }
 }

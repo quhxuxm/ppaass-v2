@@ -6,7 +6,7 @@ pub mod crypto;
 mod error;
 pub mod handler;
 pub mod server;
-
+mod session;
 pub type HttpClient = reqwest::Client;
 pub async fn publish_server_event(
     server_event_tx: Sender<AgentServerEvent>,

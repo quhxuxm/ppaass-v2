@@ -5,13 +5,15 @@ use crate::error::AgentError;
 use crate::handler::http::handle_http_client_tcp_stream;
 use crate::handler::socks5::handle_socks5_client_tcp_stream;
 use crate::handler::HandlerRequest;
+use crate::session::AgentSession;
 use crate::{publish_server_event, HttpClient};
-use bytes::Bytes;
 use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::{RsaCrypto, RsaCryptoFetcher};
-use ppaass_domain::session::{CreateSessionRequestBuilder, CreateSessionResponse, Encryption};
+use ppaass_domain::relay::RelayUpgradeFailureReason;
+use ppaass_domain::session::{CreateSessionRequest, CreateSessionResponse, Encryption};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::sync::Arc;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
 use tracing::error;
@@ -20,12 +22,14 @@ const SOCKS4_VERSION: u8 = 0x04;
 pub struct AgentServer {
     config: Arc<Config>,
     rsa_crypto_fetcher: Arc<AgentRsaCryptoFetcher>,
+    session: Arc<Mutex<Option<AgentSession>>>,
 }
 impl AgentServer {
     pub fn new(config: Arc<Config>) -> Result<Self, AgentError> {
         Ok(Self {
             rsa_crypto_fetcher: Arc::new(AgentRsaCryptoFetcher::new(config.clone())?),
             config,
+            session: Default::default(),
         })
     }
     async fn switch_protocol(client_tcp_stream: &TcpStream) -> Result<u8, AgentError> {
@@ -48,31 +52,56 @@ impl AgentServer {
             _ => handle_http_client_tcp_stream(config, request).await,
         }
     }
-    async fn create_session(
+    async fn refresh_agent_session(
         config: Arc<Config>,
         rsa_crypto: &RsaCrypto,
-        agent_aes_token: Bytes,
+        agent_encryption: Encryption,
         http_client: HttpClient,
-    ) -> Result<CreateSessionResponse, AgentError> {
-        let encrypted_aes_token = rsa_crypto.encrypt(&agent_aes_token)?;
-        let mut create_session_request_builder = CreateSessionRequestBuilder::default();
-        create_session_request_builder.auth_token(config.auth_token().to_owned());
-        create_session_request_builder
-            .agent_encryption(Encryption::Aes(encrypted_aes_token.into()));
-        let create_session_request = create_session_request_builder.build()?;
+        session: Arc<Mutex<Option<AgentSession>>>,
+    ) -> Result<(), AgentError> {
+        let create_session_request = match &agent_encryption {
+            Encryption::Plain => CreateSessionRequest {
+                agent_encryption: agent_encryption.clone(),
+                auth_token: config.auth_token().to_owned(),
+            },
+            Encryption::Aes(aes_token) => {
+                let encrypted_aes_token = rsa_crypto.encrypt(aes_token)?;
+                CreateSessionRequest {
+                    agent_encryption: Encryption::Aes(encrypted_aes_token.into()),
+                    auth_token: config.auth_token().to_owned(),
+                }
+            }
+        };
         let create_session_response = http_client
             .post(config.proxy_create_session_entry())
             .json(&create_session_request)
             .send()
             .await?;
-        let create_session_response = create_session_response
+        let CreateSessionResponse {
+            proxy_encryption,
+            session_token,
+        } = create_session_response
             .json::<CreateSessionResponse>()
             .await?;
-        Ok(create_session_response)
+
+        let proxy_encryption = match proxy_encryption {
+            Encryption::Plain => proxy_encryption,
+            Encryption::Aes(rsa_encrypted_aes_token) => {
+                Encryption::Aes(rsa_crypto.decrypt(&rsa_encrypted_aes_token)?.into())
+            }
+        };
+        let mut agent_session_lock = session.lock().map_err(|_| AgentError::AgentSessionLock)?;
+        *agent_session_lock = Some(AgentSession {
+            agent_encryption,
+            proxy_encryption,
+            session_token,
+        });
+        Ok(())
     }
     async fn concrete_start_server(
         config: Arc<Config>,
         rsa_crypto_fetcher: Arc<AgentRsaCryptoFetcher>,
+        session: Arc<Mutex<Option<AgentSession>>>,
     ) -> Result<(), AgentError> {
         let rsa_crypto =
             rsa_crypto_fetcher
@@ -81,22 +110,16 @@ impl AgentServer {
                     config.auth_token().to_owned(),
                 ))?;
         let http_client = HttpClient::new();
-        let agent_aes_token = random_32_bytes();
-        let create_session_response = Self::create_session(
+        let agent_encryption = Encryption::Aes(random_32_bytes());
+        Self::refresh_agent_session(
             config.clone(),
             &rsa_crypto,
-            agent_aes_token.clone(),
+            agent_encryption.clone(),
             http_client.clone(),
+            session.clone(),
         )
         .await?;
-        let session_token = create_session_response.session_token().to_owned();
-        let proxy_encryption = create_session_response.proxy_encryption().clone();
-        let proxy_encryption = match proxy_encryption {
-            Encryption::Plain => proxy_encryption,
-            Encryption::Aes(rsa_encrypted_aes_token) => {
-                Encryption::Aes(rsa_crypto.decrypt(&rsa_encrypted_aes_token)?.into())
-            }
-        };
+
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
@@ -105,24 +128,56 @@ impl AgentServer {
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
-            let agent_aes_token = agent_aes_token.clone();
             let config = config.clone();
-            let session_token = session_token.clone();
-            let proxy_encryption = proxy_encryption.clone();
+
+            let (agent_encryption, proxy_encryption, session_token) = {
+                let agent_session_lock =
+                    session.lock().map_err(|_| AgentError::AgentSessionLock)?;
+                match agent_session_lock.deref() {
+                    None => {
+                        continue;
+                    }
+                    Some(session) => (
+                        session.agent_encryption.clone(),
+                        session.proxy_encryption.clone(),
+                        session.session_token.clone(),
+                    ),
+                }
+            };
+
+            let rsa_crypto = rsa_crypto.clone();
+            let session = session.clone();
             tokio::spawn(async move {
                 if let Err(e) = Self::handle_client_tcp_stream(
-                    config,
+                    config.clone(),
                     HandlerRequest {
                         client_tcp_stream,
                         session_token,
                         proxy_encryption,
-                        http_client,
+                        http_client: http_client.clone(),
                         client_socket_addr,
-                        agent_encryption: Encryption::Aes(agent_aes_token),
+                        agent_encryption: agent_encryption.clone(),
                     },
                 )
                 .await
                 {
+                    if let AgentError::RelayWebSocketUpgrade(
+                        RelayUpgradeFailureReason::SessionNotFound,
+                    ) = e
+                    {
+                        if let Err(e) = Self::refresh_agent_session(
+                            config.clone(),
+                            &rsa_crypto,
+                            agent_encryption.clone(),
+                            http_client.clone(),
+                            session.clone(),
+                        )
+                        .await
+                        {
+                            error!("Fail to create agent session on previous one expired: {e:?}");
+                            return;
+                        }
+                    }
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }
             });
@@ -134,8 +189,11 @@ impl AgentServer {
             let server_event_tx = server_event_tx.clone();
             let config = self.config.clone();
             let rsa_crypto_fetcher = self.rsa_crypto_fetcher.clone();
+            let session = self.session.clone();
             tokio::spawn(async move {
-                if let Err(e) = Self::concrete_start_server(config, rsa_crypto_fetcher).await {
+                if let Err(e) =
+                    Self::concrete_start_server(config, rsa_crypto_fetcher, session).await
+                {
                     error!("Fail to start agent server: {e:?}");
                     publish_server_event(server_event_tx, AgentServerEvent::ServerStartFail).await;
                 }
