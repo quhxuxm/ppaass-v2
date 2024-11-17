@@ -135,6 +135,7 @@ impl AgentServer {
                     session.lock().map_err(|_| AgentError::AgentSessionLock)?;
                 match agent_session_lock.deref() {
                     None => {
+                        error!("Agent session is not initialized.");
                         continue;
                     }
                     Some(session) => (
@@ -174,7 +175,7 @@ impl AgentServer {
                         )
                         .await
                         {
-                            error!("Fail to create agent session on previous one expired: {e:?}");
+                            error!("Fail to refresh agent session on previous expired: {e:?}");
                             return;
                         }
                     }
