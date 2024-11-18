@@ -23,4 +23,23 @@ pub struct Config {
     client_write_timeout: u64,
     #[access(get(ty(&std::path::Path)))]
     rsa_dir: PathBuf,
+    #[access(get(ty(&str)))]
+    max_log_level: String,
+}
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            port: 80,
+            auth_token: "user1".to_string(),
+            proxy_create_session_entry: "http://localhost:8080/session/create".to_string(),
+            proxy_relay_entry: "ws://localhost:8080/relay".to_string(),
+            worker_threads: 256,
+            proxy_read_timeout: 120000,
+            proxy_write_timeout: 120000,
+            client_read_timeout: 120000,
+            client_write_timeout: 120000,
+            max_log_level: "INFO".to_string(),
+            rsa_dir: PathBuf::from("/resources/rsa"),
+        }
+    }
 }

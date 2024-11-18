@@ -8,3 +8,4 @@ client_write_timeout = 120000
 rsa_dir = "resources/rsa"
 proxy_create_session_entry = "http://45.76.0.10:8080/session/create"
 proxy_relay_entry = "ws://45.76.0.10:8080/relay"
+max_log_level = "INFO"

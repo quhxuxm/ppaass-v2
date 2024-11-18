@@ -5,6 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 use std::fs::read_to_string;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::runtime::Builder;
 use tracing::Level;
@@ -12,17 +13,16 @@ use tracing::{error, info};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
-
 pub fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .init();
     let command = CommandArgs::parse();
     let config_file_path = command
         .config
         .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILE));
     let config_file_content = read_to_string(config_file_path)?;
     let config = Arc::new(toml::from_str::<Config>(&config_file_content)?);
+    tracing_subscriber::fmt()
+        .with_max_level(Level::from_str(config.max_log_level())?)
+        .init();
     let runtime = Builder::new_multi_thread()
         .worker_threads(*config.worker_threads())
         .enable_all()

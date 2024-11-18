@@ -3,5 +3,5 @@ worker_threads = 256
 dst_read_timeout = 120000
 dst_write_timeout = 120000
 rsa_dir = "resources/rsa"
-max_log_level = "DEBUG"
+max_log_level = "INFO"
 dst_buffer_size = 8388608
