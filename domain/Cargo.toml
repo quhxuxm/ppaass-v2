@@ -11,6 +11,4 @@ bincode = { workspace = true }
 thiserror = { workspace = true }
 derive_more = { workspace = true, features = ["constructor", "display"] }
 chrono = { workspace = true, features = ["serde"] }
-derive_builder = { workspace = true }
-accessory = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
