@@ -169,7 +169,7 @@ async fn relay_proxy_data(
                         relay_info = { &relay_info_token },
                         "Fail write client data to proxy: {e:?}"
                     );
-                    break;
+                    return;
                 };
             }
             if let Err(e) = proxy_ws_write.close().await {
@@ -258,7 +258,7 @@ async fn relay_proxy_data(
                     relay_info = { &relay_info_token },
                     "Fail to write proxy data to client: {e:?}"
                 );
-                break;
+                return;
             };
         }
         if let Err(e) = client_tcp_write.close().await {

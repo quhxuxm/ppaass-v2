@@ -122,7 +122,7 @@ async fn relay_agent_to_dest(
                 relay_info_token = { &relay_info_token },
                 "Fail to send agent data to destination: {e:?}"
             );
-            break;
+            return;
         }
     }
     if let Err(e) = dest_transport_write.close().await {
@@ -189,7 +189,7 @@ async fn relay_dest_to_agent(
                 relay_info_token = { &relay_info_token },
                 "Fail to send destination data to agent: {e:?}"
             );
-            break;
+            return;
         }
     }
     if let Err(e) = proxy_websocket_write.close().await {
