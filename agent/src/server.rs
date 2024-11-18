@@ -13,9 +13,10 @@ use ppaass_domain::relay::RelayUpgradeFailureReason;
 use ppaass_domain::session::{CreateSessionRequest, CreateSessionResponse, Encryption};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
+use tokio::sync::Mutex;
 use tracing::error;
 const SOCKS5_VERSION: u8 = 0x05;
 const SOCKS4_VERSION: u8 = 0x04;
@@ -72,6 +73,7 @@ impl AgentServer {
                 }
             }
         };
+        let mut agent_session_lock = session.lock().await;
         let create_session_response = http_client
             .post(config.proxy_create_session_entry())
             .json(&create_session_request)
@@ -83,14 +85,12 @@ impl AgentServer {
         } = create_session_response
             .json::<CreateSessionResponse>()
             .await?;
-
         let proxy_encryption = match proxy_encryption {
             Encryption::Plain => proxy_encryption,
             Encryption::Aes(rsa_encrypted_aes_token) => {
                 Encryption::Aes(rsa_crypto.decrypt(&rsa_encrypted_aes_token)?.into())
             }
         };
-        let mut agent_session_lock = session.lock().map_err(|_| AgentError::AgentSessionLock)?;
         *agent_session_lock = Some(AgentSession {
             agent_encryption,
             proxy_encryption,
@@ -118,21 +118,19 @@ impl AgentServer {
             http_client.clone(),
             session.clone(),
         )
-        .await?;
-
+            .await?;
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-        .await?;
+            .await?;
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
             let config = config.clone();
-
             let (agent_encryption, proxy_encryption, session_token) = {
                 let agent_session_lock =
-                    session.lock().map_err(|_| AgentError::AgentSessionLock)?;
+                    session.lock().await;
                 match agent_session_lock.deref() {
                     None => {
                         error!("Agent session is not initialized.");
@@ -145,7 +143,6 @@ impl AgentServer {
                     ),
                 }
             };
-
             let rsa_crypto = rsa_crypto.clone();
             let session = session.clone();
             tokio::spawn(async move {
@@ -160,7 +157,7 @@ impl AgentServer {
                         agent_encryption: agent_encryption.clone(),
                     },
                 )
-                .await
+                    .await
                 {
                     if let AgentError::RelayWebSocketUpgrade(
                         RelayUpgradeFailureReason::SessionNotFound,
@@ -173,7 +170,7 @@ impl AgentServer {
                             http_client.clone(),
                             session.clone(),
                         )
-                        .await
+                            .await
                         {
                             error!("Fail to refresh agent session on previous expired: {e:?}");
                             return;

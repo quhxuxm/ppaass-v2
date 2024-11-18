@@ -30,6 +30,4 @@ pub enum AgentError {
     UnknownHostFromTargetUrl(String),
     #[error("Fail to upgrade relay websocket: {0} ")]
     RelayWebSocketUpgrade(RelayUpgradeFailureReason),
-    #[error("Fail to lock agent session")]
-    AgentSessionLock,
 }
