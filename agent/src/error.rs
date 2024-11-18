@@ -1,6 +1,6 @@
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
-use ppaass_domain::relay::{RelayInfoBuilderError, RelayUpgradeFailureReason};
+use ppaass_domain::relay::RelayUpgradeFailureReason;
 use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AgentError {
@@ -18,8 +18,6 @@ pub enum AgentError {
     Crypto(#[from] CryptoError),
     #[error("Rsa crypto not exist: {0}")]
     RsaCryptoNotExist(String),
-    #[error(transparent)]
-    RelayInfoBuilder(#[from] RelayInfoBuilderError),
     #[error(transparent)]
     Domain(#[from] DomainError),
     #[error(transparent)]

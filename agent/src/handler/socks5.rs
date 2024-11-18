@@ -4,7 +4,7 @@ use crate::handler::{
     generate_relay_websocket, relay_proxy_data, HandlerRequest, RelayProxyDataRequest,
 };
 use ppaass_domain::address::UnifiedAddress;
-use ppaass_domain::relay::{RelayInfoBuilder, RelayType};
+use ppaass_domain::relay::{RelayInfo, RelayType};
 use socks5_impl::protocol::{
     handshake::Request as Socks5HandshakeRequest, handshake::Response as Socks5HandshakeResponse,
     Address, AsyncStreamOperation, AuthMethod, Command, Reply, Request as Socks5Request, Response,
@@ -36,23 +36,21 @@ pub async fn handle_socks5_client_tcp_stream(
         Command::Connect => {
             let relay_info = match &init_request.address {
                 Address::SocketAddress(socket_addr) => {
-                    let mut relay_info_builder = RelayInfoBuilder::default();
-                    relay_info_builder
-                        .dst_address((*socket_addr).into())
-                        .src_address(client_socket_addr.into())
-                        .relay_type(RelayType::Tcp);
-                    relay_info_builder.build()?
+                    RelayInfo {
+                        dst_address: (*socket_addr).into(),
+                        src_address: client_socket_addr.into(),
+                        relay_type: RelayType::Tcp,
+                    }
                 }
                 Address::DomainAddress(domain, port) => {
-                    let mut relay_info_builder = RelayInfoBuilder::default();
-                    relay_info_builder
-                        .dst_address(UnifiedAddress::Domain {
+                    RelayInfo {
+                        dst_address: UnifiedAddress::Domain {
                             host: domain.to_owned(),
                             port: *port,
-                        })
-                        .src_address(client_socket_addr.into())
-                        .relay_type(RelayType::Tcp);
-                    relay_info_builder.build()?
+                        },
+                        src_address: client_socket_addr.into(),
+                        relay_type: RelayType::Tcp,
+                    }
                 }
             };
             let (proxy_websocket, relay_info_token) = generate_relay_websocket(
@@ -62,7 +60,7 @@ pub async fn handle_socks5_client_tcp_stream(
                 &config,
                 &http_client,
             )
-            .await?;
+                .await?;
             let init_response = Response::new(Reply::Succeeded, init_request.address);
             init_response
                 .write_to_async_stream(&mut client_tcp_stream)
@@ -76,7 +74,7 @@ pub async fn handle_socks5_client_tcp_stream(
                 relay_info_token,
                 initial_data: None,
             })
-            .await;
+                .await;
         }
         Command::Bind => {}
         Command::UdpAssociate => {}

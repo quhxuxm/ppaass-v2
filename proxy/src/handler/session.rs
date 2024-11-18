@@ -11,10 +11,8 @@ use ppaass_crypto::rsa::RsaCryptoFetcher;
 use ppaass_domain::generate_uuid;
 use ppaass_domain::session::{
     CreateSessionRequest, CreateSessionResponse, Encryption, GetSessionResponse,
-    GetSessionResponseBuilder,
 };
 use std::sync::Arc;
-use tracing::error;
 pub async fn get_session(
     State(server_state): State<Arc<ServerState>>,
     Path(session_token): Path<String>,
@@ -26,13 +24,11 @@ pub async fn get_session(
     let session = session_repository
         .get(&session_token)
         .ok_or(ProxyError::SessionNotExist(session_token.clone()))?;
-    let mut get_session_response_builder = GetSessionResponseBuilder::default();
-    get_session_response_builder
-        .session_token(session_token)
-        .auth_token(session.auth_token().to_owned())
-        .relay_infos(session.relays().to_owned());
-    let get_session_response = get_session_response_builder.build()?;
-    Ok(Json(get_session_response))
+    Ok(Json(GetSessionResponse {
+        session_token,
+        auth_token: session.auth_token().to_owned(),
+        relay_infos: session.relays().to_owned(),
+    }))
 }
 pub async fn get_all_sessions(
     State(server_state): State<Arc<ServerState>>,
@@ -44,34 +40,22 @@ pub async fn get_all_sessions(
     let result = session_repository
         .iter()
         .filter_map(|(k, v)| {
-            let mut get_session_response_builder = GetSessionResponseBuilder::default();
-            get_session_response_builder
-                .session_token(k.to_owned())
-                .auth_token(v.auth_token().to_owned())
-                .relay_infos(v.relays().to_owned());
-            let get_session_response = match get_session_response_builder.build() {
-                Ok(response) => response,
-                Err(e) => {
-                    error!(
-                        session_token = { k },
-                        "Fail to build get session response: {e:?}"
-                    );
-                    return None;
-                }
-            };
-            Some(get_session_response)
+            Some(GetSessionResponse {
+                session_token: k.to_owned(),
+                auth_token: v.auth_token().to_owned(),
+                relay_infos: v.relays().to_owned(),
+            })
         })
         .collect::<Vec<GetSessionResponse>>();
     Ok(Json(result))
 }
-
 // #[axum::debug_handler]
 pub async fn create_session(
     State(server_state): State<Arc<ServerState>>,
     Json(CreateSessionRequest {
-        agent_encryption,
-        auth_token,
-    }): Json<CreateSessionRequest>,
+             agent_encryption,
+             auth_token,
+         }): Json<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, ProxyError> {
     let rsa_crypto_fetcher = server_state.rsa_crypto_fetcher();
     let rsa_crypto = rsa_crypto_fetcher
@@ -108,7 +92,7 @@ pub async fn create_session(
         server_state.server_event_tx(),
         ProxyServerEvent::SessionStarted(session_token.clone()),
     )
-    .await;
+        .await;
     let proxy_encryption = Encryption::Aes(rsa_crypto.encrypt(&random_raw_proxy_aes_token)?.into());
     Ok(Json(CreateSessionResponse {
         proxy_encryption,

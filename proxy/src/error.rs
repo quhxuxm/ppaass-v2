@@ -7,7 +7,6 @@ use base64::DecodeError;
 use hex::FromHexError;
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
-use ppaass_domain::session::GetSessionResponseBuilderError;
 use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ProxyError {
@@ -34,8 +33,6 @@ pub enum ProxyError {
     #[error(transparent)]
     SessionBuilder(#[from] SessionBuilderError),
     #[error(transparent)]
-    GetSessionResponseBuilder(#[from] GetSessionResponseBuilderError),
-    #[error(transparent)]
     ServerStateBuilder(#[from] ServerStateBuilderError),
     #[error(transparent)]
     FromHex(#[from] FromHexError),
@@ -44,7 +41,6 @@ pub enum ProxyError {
     #[error(transparent)]
     Http(#[from] http::Error),
 }
-
 impl IntoResponse for ProxyError {
     fn into_response(self) -> Response {
         match self {

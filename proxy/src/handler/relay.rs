@@ -172,8 +172,7 @@ async fn relay_dest_to_agent(
     }: RelayDestToAgentValues,
 ) {
     loop {
-        let dest_data = dest_transport_read.next().await;
-        let dest_data = match dest_data {
+        let dest_data = match dest_transport_read.next().await {
             None => {
                 if let Err(e) = proxy_websocket_write.close().await {
                     error!(
@@ -305,7 +304,10 @@ pub async fn relay(
             relay_info_token = { &relay_info_token },
             "Going to relay data for: {relay_info:?}"
         );
-        let dst_address = relay_info.dst_address().clone();
+        let RelayInfo {
+            dst_address, relay_type,
+            ..
+        } = relay_info;
         let dst_addresses: Vec<SocketAddr> = match dst_address.try_into() {
             Ok(dst_addresses) => dst_addresses,
             Err(e) => {
@@ -318,7 +320,7 @@ pub async fn relay(
                 return;
             }
         };
-        let dest_transport = match relay_info.relay_type() {
+        let dest_transport = match relay_type {
             RelayType::Tcp => {
                 match DestinationTransport::new_tcp(dst_addresses, server_state.config().clone())
                     .await
