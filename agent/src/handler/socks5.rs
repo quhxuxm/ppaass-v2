@@ -65,7 +65,7 @@ pub async fn handle_socks5_client_tcp_stream(
             init_response
                 .write_to_async_stream(&mut client_tcp_stream)
                 .await?;
-            relay_proxy_data(RelayProxyDataRequest {
+            relay_proxy_data(&config, RelayProxyDataRequest {
                 client_tcp_stream,
                 proxy_websocket,
                 session_token,

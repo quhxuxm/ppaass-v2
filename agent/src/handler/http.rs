@@ -130,7 +130,7 @@ pub async fn handle_http_client_tcp_stream(
             .encode_into_bytes(http_connect_success_response)?;
         client_tcp_stream.write_all(&response_bytes).await?;
     }
-    relay_proxy_data(RelayProxyDataRequest {
+    relay_proxy_data(&config, RelayProxyDataRequest {
         client_tcp_stream,
         proxy_websocket,
         session_token,

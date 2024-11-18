@@ -13,18 +13,12 @@ pub struct Config {
     proxy_relay_entry: String,
     #[access(get)]
     worker_threads: usize,
-    #[access(get)]
-    proxy_read_timeout: u64,
-    #[access(get)]
-    proxy_write_timeout: u64,
-    #[access(get)]
-    client_read_timeout: u64,
-    #[access(get)]
-    client_write_timeout: u64,
     #[access(get(ty(&std::path::Path)))]
     rsa_dir: PathBuf,
     #[access(get(ty(&str)))]
     max_log_level: String,
+    #[access(get)]
+    client_buffer_size: usize,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -34,12 +28,9 @@ impl Default for Config {
             proxy_create_session_entry: "http://localhost:8080/session/create".to_string(),
             proxy_relay_entry: "ws://localhost:8080/relay".to_string(),
             worker_threads: 256,
-            proxy_read_timeout: 120000,
-            proxy_write_timeout: 120000,
-            client_read_timeout: 120000,
-            client_write_timeout: 120000,
             max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/rsa"),
+            client_buffer_size: 1024 * 1024 * 8,
         }
     }
 }

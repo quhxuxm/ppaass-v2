@@ -67,14 +67,12 @@ async fn generate_relay_websocket(
         Ok((relay_websocket, relay_info_token))
     }
 }
-
 fn encrypt_agent_data(data: Bytes, agent_encryption: &Encryption) -> Result<Vec<u8>, AgentError> {
     match &agent_encryption {
         Encryption::Plain => Ok(data.to_vec()),
         Encryption::Aes(aes_token) => Ok(encrypt_with_aes(aes_token, &data)?),
     }
 }
-
 async fn write_to_proxy_websocket(
     proxy_ws_write: &mut SplitSink<WebSocket, Message>,
     data: Vec<u8>,
@@ -95,6 +93,7 @@ struct RelayProxyDataRequest {
     initial_data: Option<Bytes>,
 }
 async fn relay_proxy_data(
+    config: &Config,
     RelayProxyDataRequest {
         client_tcp_stream,
         proxy_websocket,
@@ -107,7 +106,7 @@ async fn relay_proxy_data(
 ) {
     let (mut proxy_ws_write, mut proxy_ws_read) = proxy_websocket.split();
     let client_framed =
-        Framed::with_capacity(client_tcp_stream, BytesCodec::new(), 1024 * 1024 * 64);
+        Framed::with_capacity(client_tcp_stream, BytesCodec::new(), *config.client_buffer_size());
     let (mut client_tcp_write, mut client_tcp_read) = client_framed.split::<BytesMut>();
     {
         let session_token = session_token.clone();
@@ -137,7 +136,6 @@ async fn relay_proxy_data(
                     return;
                 };
             }
-
             loop {
                 let client_data = match client_tcp_read.next().await {
                     None => {
