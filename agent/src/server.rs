@@ -118,19 +118,18 @@ impl AgentServer {
             http_client.clone(),
             session.clone(),
         )
-            .await?;
+        .await?;
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-            .await?;
+        .await?;
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
             let config = config.clone();
             let (agent_encryption, proxy_encryption, session_token) = {
-                let agent_session_lock =
-                    session.lock().await;
+                let agent_session_lock = session.lock().await;
                 match agent_session_lock.deref() {
                     None => {
                         error!("Agent session is not initialized.");
@@ -157,7 +156,7 @@ impl AgentServer {
                         agent_encryption: agent_encryption.clone(),
                     },
                 )
-                    .await
+                .await
                 {
                     if let AgentError::RelayWebSocketUpgrade(
                         RelayUpgradeFailureReason::SessionNotFound,
@@ -170,7 +169,7 @@ impl AgentServer {
                             http_client.clone(),
                             session.clone(),
                         )
-                            .await
+                        .await
                         {
                             error!("Fail to refresh agent session on previous expired: {e:?}");
                             return;

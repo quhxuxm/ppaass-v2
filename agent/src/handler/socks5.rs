@@ -35,23 +35,19 @@ pub async fn handle_socks5_client_tcp_stream(
     match init_request.command {
         Command::Connect => {
             let relay_info = match &init_request.address {
-                Address::SocketAddress(socket_addr) => {
-                    RelayInfo {
-                        dst_address: (*socket_addr).into(),
-                        src_address: client_socket_addr.into(),
-                        relay_type: RelayType::Tcp,
-                    }
-                }
-                Address::DomainAddress(domain, port) => {
-                    RelayInfo {
-                        dst_address: UnifiedAddress::Domain {
-                            host: domain.to_owned(),
-                            port: *port,
-                        },
-                        src_address: client_socket_addr.into(),
-                        relay_type: RelayType::Tcp,
-                    }
-                }
+                Address::SocketAddress(socket_addr) => RelayInfo {
+                    dst_address: (*socket_addr).into(),
+                    src_address: client_socket_addr.into(),
+                    relay_type: RelayType::Tcp,
+                },
+                Address::DomainAddress(domain, port) => RelayInfo {
+                    dst_address: UnifiedAddress::Domain {
+                        host: domain.to_owned(),
+                        port: *port,
+                    },
+                    src_address: client_socket_addr.into(),
+                    relay_type: RelayType::Tcp,
+                },
             };
             let (proxy_websocket, relay_info_token) = generate_relay_websocket(
                 &session_token,
@@ -60,21 +56,24 @@ pub async fn handle_socks5_client_tcp_stream(
                 &config,
                 &http_client,
             )
-                .await?;
+            .await?;
             let init_response = Response::new(Reply::Succeeded, init_request.address);
             init_response
                 .write_to_async_stream(&mut client_tcp_stream)
                 .await?;
-            relay_proxy_data(&config, RelayProxyDataRequest {
-                client_tcp_stream,
-                proxy_websocket,
-                session_token,
-                agent_encryption,
-                proxy_encryption,
-                relay_info_token,
-                initial_data: None,
-            })
-                .await;
+            relay_proxy_data(
+                &config,
+                RelayProxyDataRequest {
+                    client_tcp_stream,
+                    proxy_websocket,
+                    session_token,
+                    agent_encryption,
+                    proxy_encryption,
+                    relay_info_token,
+                    initial_data: None,
+                },
+            )
+            .await;
         }
         Command::Bind => {}
         Command::UdpAssociate => {}

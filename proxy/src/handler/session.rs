@@ -53,9 +53,9 @@ pub async fn get_all_sessions(
 pub async fn create_session(
     State(server_state): State<Arc<ServerState>>,
     Json(CreateSessionRequest {
-             agent_encryption,
-             auth_token,
-         }): Json<CreateSessionRequest>,
+        agent_encryption,
+        auth_token,
+    }): Json<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, ProxyError> {
     let rsa_crypto_fetcher = server_state.rsa_crypto_fetcher();
     let rsa_crypto = rsa_crypto_fetcher
@@ -92,7 +92,7 @@ pub async fn create_session(
         server_state.server_event_tx(),
         ProxyServerEvent::SessionStarted(session_token.clone()),
     )
-        .await;
+    .await;
     let proxy_encryption = Encryption::Aes(rsa_crypto.encrypt(&random_raw_proxy_aes_token)?.into());
     Ok(Json(CreateSessionResponse {
         proxy_encryption,

@@ -70,19 +70,22 @@ pub async fn handle_http_client_tcp_stream(
             let request_url = Url::parse(format!("https://{}", request_target.as_str()).as_str())?;
             debug!("Receive https request: {}", request_url);
             //HTTPS request with proxy
-            (RelayInfo {
-                dst_address: UnifiedAddress::Domain {
-                    host: request_url
-                        .host_str()
-                        .ok_or(AgentError::UnknownHostFromTargetUrl(
-                            request_url.to_string(),
-                        ))?
-                        .to_string(),
-                    port: request_url.port().unwrap_or(HTTPS_PORT),
+            (
+                RelayInfo {
+                    dst_address: UnifiedAddress::Domain {
+                        host: request_url
+                            .host_str()
+                            .ok_or(AgentError::UnknownHostFromTargetUrl(
+                                request_url.to_string(),
+                            ))?
+                            .to_string(),
+                        port: request_url.port().unwrap_or(HTTPS_PORT),
+                    },
+                    src_address: client_socket_addr.into(),
+                    relay_type: RelayType::Tcp,
                 },
-                src_address: client_socket_addr.into(),
-                relay_type: RelayType::Tcp,
-            }, None)
+                None,
+            )
         } else {
             //HTTP request with proxy
             let request_target = http_request.request_target();
@@ -115,7 +118,7 @@ pub async fn handle_http_client_tcp_stream(
         &config,
         &http_client,
     )
-        .await?;
+    .await?;
     if initial_http_request_bytes.is_none() {
         //For https proxy
         let http_connect_success_response = Response::new(
@@ -130,15 +133,18 @@ pub async fn handle_http_client_tcp_stream(
             .encode_into_bytes(http_connect_success_response)?;
         client_tcp_stream.write_all(&response_bytes).await?;
     }
-    relay_proxy_data(&config, RelayProxyDataRequest {
-        client_tcp_stream,
-        proxy_websocket,
-        session_token,
-        agent_encryption,
-        proxy_encryption,
-        relay_info_token,
-        initial_data: initial_http_request_bytes,
-    })
-        .await;
+    relay_proxy_data(
+        &config,
+        RelayProxyDataRequest {
+            client_tcp_stream,
+            proxy_websocket,
+            session_token,
+            agent_encryption,
+            proxy_encryption,
+            relay_info_token,
+            initial_data: initial_http_request_bytes,
+        },
+    )
+    .await;
     Ok(())
 }

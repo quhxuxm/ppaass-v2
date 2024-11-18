@@ -17,10 +17,9 @@ pub struct CreateSessionResponse {
     pub proxy_encryption: Encryption,
     pub session_token: String,
 }
-#[derive(Deserialize, Serialize, Debug, Clone, )]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GetSessionResponse {
     pub session_token: String,
     pub auth_token: String,
     pub relay_infos: Vec<RelayInfo>,
 }
-

@@ -105,8 +105,11 @@ async fn relay_proxy_data(
     }: RelayProxyDataRequest,
 ) {
     let (mut proxy_ws_write, mut proxy_ws_read) = proxy_websocket.split();
-    let client_framed =
-        Framed::with_capacity(client_tcp_stream, BytesCodec::new(), *config.client_buffer_size());
+    let client_framed = Framed::with_capacity(
+        client_tcp_stream,
+        BytesCodec::new(),
+        *config.client_buffer_size(),
+    );
     let (mut client_tcp_write, mut client_tcp_read) = client_framed.split::<BytesMut>();
     {
         let session_token = session_token.clone();

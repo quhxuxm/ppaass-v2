@@ -305,7 +305,8 @@ pub async fn relay(
             "Going to relay data for: {relay_info:?}"
         );
         let RelayInfo {
-            dst_address, relay_type,
+            dst_address,
+            relay_type,
             ..
         } = relay_info;
         let dst_addresses: Vec<SocketAddr> = match dst_address.try_into() {
