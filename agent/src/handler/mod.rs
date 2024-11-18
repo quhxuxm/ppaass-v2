@@ -4,7 +4,6 @@ use crate::HttpClient;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use bytes::{Bytes, BytesMut};
-use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::relay::{RelayInfo, RelayUpgradeFailureReason};
@@ -73,16 +72,6 @@ fn encrypt_agent_data(data: Bytes, agent_encryption: &Encryption) -> Result<Vec<
         Encryption::Aes(aes_token) => Ok(encrypt_with_aes(aes_token, &data)?),
     }
 }
-async fn write_to_proxy_websocket(
-    proxy_ws_write: &mut SplitSink<WebSocket, Message>,
-    data: Vec<u8>,
-) -> Result<(), AgentError> {
-    if let Err(e) = proxy_ws_write.send(Message::Binary(data)).await {
-        proxy_ws_write.close().await?;
-        return Err(e.into());
-    };
-    Ok(())
-}
 struct RelayProxyDataRequest {
     client_tcp_stream: TcpStream,
     proxy_websocket: WebSocket,
@@ -124,18 +113,21 @@ async fn relay_proxy_data(
                             relay_info = { &relay_info_token },
                             "Fail to aes encrypt client data: {e:?}"
                         );
-                        // if let Err(e) = proxy_ws_write.close().await {
-                        //     error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
-                        // };
+                        if let Err(e) = proxy_ws_write.close().await {
+                            error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
+                        };
                         return;
                     }
                 };
-                if let Err(e) = write_to_proxy_websocket(&mut proxy_ws_write, initial_data).await {
+                if let Err(e) = proxy_ws_write.send(Message::Binary(initial_data)).await {
                     error!(
                         session_token = { &session_token },
                         relay_info = { &relay_info_token },
                         "Fail write client data to proxy: {e:?}"
                     );
+                    if let Err(e) = proxy_ws_write.close().await {
+                        error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket on fail to send initial data to proxy: {e:?}");
+                    };
                     return;
                 };
             }
@@ -147,10 +139,7 @@ async fn relay_proxy_data(
                             relay_info = { &relay_info_token },
                             "Client data exhausted"
                         );
-                        // if let Err(e) = proxy_ws_write.close().await {
-                        //     error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on client data exhausted: {e:?}");
-                        // };
-                        return;
+                        break;
                     }
                     Some(Ok(client_data)) => client_data,
                     Some(Err(e)) => {
@@ -159,10 +148,7 @@ async fn relay_proxy_data(
                             relay_info = { &relay_info_token },
                             "Fail to read client data: {e:?}"
                         );
-                        // if let Err(e) = proxy_ws_write.close().await {
-                        //     error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on read client data have error: {e:?}");
-                        // };
-                        return;
+                        break;
                     }
                 };
                 let client_data = match encrypt_agent_data(client_data.freeze(), &agent_encryption)
@@ -174,35 +160,33 @@ async fn relay_proxy_data(
                             relay_info = { &relay_info_token },
                             "Fail to aes encrypt client data: {e:?}"
                         );
-                        // if let Err(e) = proxy_ws_write.close().await {
-                        //     error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket connection on aes encrypt client data fail: {e:?}");
-                        // };
-                        return;
+                        break;
                     }
                 };
-                if let Err(e) = write_to_proxy_websocket(&mut proxy_ws_write, client_data).await {
+                if let Err(e) = proxy_ws_write.send(Message::Binary(client_data)).await {
                     error!(
                         session_token = { &session_token },
                         relay_info = { &relay_info_token },
                         "Fail write client data to proxy: {e:?}"
                     );
-                    return;
+                    break;
                 };
             }
+            if let Err(e) = proxy_ws_write.close().await {
+                error!(session_token={session_token}, relay_info={relay_info_token},"Fail to close proxy websocket write half: {e:?}");
+            };
         });
     }
     tokio::spawn(async move {
         loop {
             let proxy_data = match proxy_ws_read.next().await {
                 None => {
-                    // if let Err(e) = client_tcp_write.close().await {
-                    //     error!(
-                    //         session_token = { &session_token },
-                    //         relay_info = { &relay_info_token },
-                    //         "Fail to close client tcp connection when proxy exhausted: {e:?}"
-                    //     );
-                    // }
-                    return;
+                    debug!(
+                        session_token = { &session_token },
+                        relay_info = { &relay_info_token },
+                        "Proxy websocket exhausted"
+                    );
+                    break;
                 }
                 Some(Err(e)) => {
                     error!(
@@ -210,14 +194,7 @@ async fn relay_proxy_data(
                         relay_info = { &relay_info_token },
                         "Fail read data from proxy: {e:?}"
                     );
-                    // if let Err(e) = client_tcp_write.close().await {
-                    //     error!(
-                    //         session_token = { &session_token },
-                    //         relay_info = { &relay_info_token },
-                    //         "Fail to close client tcp connection when read proxy fail: {e:?}"
-                    //     );
-                    // }
-                    return;
+                    break;
                 }
                 Some(Ok(proxy_data)) => proxy_data,
             };
@@ -255,14 +232,7 @@ async fn relay_proxy_data(
                         relay_info = { &relay_info_token },
                         "Received close message from proxy with code: {code}, reason: {reason}"
                     );
-                    // if let Err(e) = client_tcp_write.close().await {
-                    //     error!(
-                    //         session_token = { &session_token },
-                    //         relay_info = { &relay_info_token },
-                    //         "Fail to close client tcp connection when proxy websocket close: {e:?}"
-                    //     );
-                    // }
-                    return;
+                    break;
                 }
             };
             let proxy_data = match &proxy_encryption {
@@ -275,14 +245,7 @@ async fn relay_proxy_data(
                             relay_info = { &relay_info_token },
                             "Fail read decrypt aes data from proxy: {e:?}"
                         );
-                        // if let Err(e) = client_tcp_write.close().await {
-                        //     error!(
-                        //                     session_token = { &session_token },
-                        //                     relay_info = { &relay_info_token },
-                        //                     "Fail to close client tcp connection when decrypt proxy data with aes fail: {e:?}"
-                        //                 );
-                        // }
-                        return;
+                        break;
                     }
                 },
             };
@@ -295,15 +258,15 @@ async fn relay_proxy_data(
                     relay_info = { &relay_info_token },
                     "Fail to write proxy data to client: {e:?}"
                 );
-                // if let Err(e) = client_tcp_write.close().await {
-                //     error!(
-                //         session_token = { &session_token },
-                //         relay_info = { &relay_info_token },
-                //         "Fail to close client tcp connection when send data to client fail: {e:?}"
-                //     );
-                // }
-                return;
+                break;
             };
+        }
+        if let Err(e) = client_tcp_write.close().await {
+            error!(
+                session_token = { &session_token },
+                relay_info = { &relay_info_token },
+                "Fail to close client tcp connection write half: {e:?}"
+            );
         }
     });
 }
