@@ -40,13 +40,13 @@ async fn relay_agent_to_dest(
         let agent_data = proxy_websocket_read.next().await;
         let agent_data = match agent_data {
             None => {
-                if let Err(e) = dest_transport_write.close().await {
-                    error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close destination write half on agent data exhausted: {e:?}"
-                    );
-                }
+                // if let Err(e) = dest_transport_write.close().await {
+                //     error!(
+                //         session_token = { &session_token },
+                //         relay_info_token = { &relay_info_token },
+                //         "Fail to close destination write half on agent data exhausted: {e:?}"
+                //     );
+                // }
                 return;
             }
             Some(Err(e)) => {
@@ -93,13 +93,13 @@ async fn relay_agent_to_dest(
                     relay_info_token = { &relay_info_token },
                     "Received close message from agent with code: {code}, reason: {reason}"
                 );
-                if let Err(e) = dest_transport_write.close().await {
-                    error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close destination write half on agent websocket closed: {e:?}"
-                    );
-                }
+                // if let Err(e) = dest_transport_write.close().await {
+                //     error!(
+                //         session_token = { &session_token },
+                //         relay_info_token = { &relay_info_token },
+                //         "Fail to close destination write half on agent websocket closed: {e:?}"
+                //     );
+                // }
                 return;
             }
             Message::Close(None) => {
@@ -108,13 +108,13 @@ async fn relay_agent_to_dest(
                     relay_info_token = { &relay_info_token },
                     "Received close message from agent without any information."
                 );
-                if let Err(e) = dest_transport_write.close().await {
-                    error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close destination write half on agent websocket closed: {e:?}"
-                    );
-                }
+                // if let Err(e) = dest_transport_write.close().await {
+                //     error!(
+                //         session_token = { &session_token },
+                //         relay_info_token = { &relay_info_token },
+                //         "Fail to close destination write half on agent websocket closed: {e:?}"
+                //     );
+                // }
                 return;
             }
         };
@@ -128,12 +128,12 @@ async fn relay_agent_to_dest(
                         relay_info_token = { &relay_info_token },
                         "Fail to aes decrypt agent data: {e:?}"
                     );
-                    if let Err(e) = dest_transport_write.close().await {
-                        error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close destination write half on decrypt agent data with aes: {e:?}");
-                    }
+                    // if let Err(e) = dest_transport_write.close().await {
+                    //     error!(
+                    //     session_token = { &session_token },
+                    //     relay_info_token = { &relay_info_token },
+                    //     "Fail to close destination write half on decrypt agent data with aes: {e:?}");
+                    // }
                     return;
                 }
             },
@@ -145,12 +145,12 @@ async fn relay_agent_to_dest(
                 relay_info_token = { &relay_info_token },
                 "Fail to send agent data to destination: {e:?}"
             );
-            if let Err(e) = dest_transport_write.close().await {
-                error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close destination write half on fail to send data to destination: {e:?}");
-            }
+            // if let Err(e) = dest_transport_write.close().await {
+            //     error!(
+            //             session_token = { &session_token },
+            //             relay_info_token = { &relay_info_token },
+            //             "Fail to close destination write half on fail to send data to destination: {e:?}");
+            // }
             return;
         }
     }
@@ -174,13 +174,13 @@ async fn relay_dest_to_agent(
     loop {
         let dest_data = match dest_transport_read.next().await {
             None => {
-                if let Err(e) = proxy_websocket_write.close().await {
-                    error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close agent websocket on destination exhausted: {e:?}"
-                    );
-                }
+                // if let Err(e) = proxy_websocket_write.close().await {
+                //     error!(
+                //         session_token = { &session_token },
+                //         relay_info_token = { &relay_info_token },
+                //         "Fail to close agent websocket on destination exhausted: {e:?}"
+                //     );
+                // }
                 return;
             }
             Some(Err(e)) => {
@@ -189,13 +189,13 @@ async fn relay_dest_to_agent(
                     relay_info_token = { &relay_info_token },
                     "Fail to receive destination data: {e:?}"
                 );
-                if let Err(e) = proxy_websocket_write.close().await {
-                    error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close agent websocket on read destination fail: {e:?}"
-                    );
-                }
+                // if let Err(e) = proxy_websocket_write.close().await {
+                //     error!(
+                //         session_token = { &session_token },
+                //         relay_info_token = { &relay_info_token },
+                //         "Fail to close agent websocket on read destination fail: {e:?}"
+                //     );
+                // }
                 return;
             }
             Some(Ok(dest_data)) => dest_data,
@@ -210,12 +210,12 @@ async fn relay_dest_to_agent(
                         relay_info_token = { &relay_info_token },
                         "Fail to aes encrypt destination data: {e:?}"
                     );
-                    if let Err(e) = proxy_websocket_write.close().await {
-                        error!(
-                        session_token = { &session_token },
-                        relay_info_token = { &relay_info_token },
-                        "Fail to close agent websocket on aes encrypt destination data fail: {e:?}");
-                    }
+                    // if let Err(e) = proxy_websocket_write.close().await {
+                    //     error!(
+                    //     session_token = { &session_token },
+                    //     relay_info_token = { &relay_info_token },
+                    //     "Fail to close agent websocket on aes encrypt destination data fail: {e:?}");
+                    // }
                     return;
                 }
             },
@@ -227,13 +227,13 @@ async fn relay_dest_to_agent(
                 relay_info_token = { &relay_info_token },
                 "Fail to send destination data to agent: {e:?}"
             );
-            if let Err(e) = proxy_websocket_write.close().await {
-                error!(
-                    session_token = { &session_token },
-                    relay_info_token = { &relay_info_token },
-                    "Fail to close agent websocket on write to agent websocket fail: {e:?}"
-                );
-            }
+            // if let Err(e) = proxy_websocket_write.close().await {
+            //     error!(
+            //         session_token = { &session_token },
+            //         relay_info_token = { &relay_info_token },
+            //         "Fail to close agent websocket on write to agent websocket fail: {e:?}"
+            //     );
+            // }
             return;
         }
     }
