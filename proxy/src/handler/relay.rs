@@ -53,7 +53,7 @@ async fn relay_agent_to_dest(
                 error!(
                     session_token = { &session_token },
                     relay_info_token = { &relay_info_token },
-                    "Fail to read client data: {e:?}"
+                    "Fail to read agent data from websocket: {e:?}"
                 );
                 return;
             }
