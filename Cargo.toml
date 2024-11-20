@@ -43,4 +43,5 @@ url = "2.5.3"
 axum-macros = "0.4.2"
 tokio-io-timeout = "1.2.0"
 mimalloc = "0.1.43"
+deadpool = "0.12.1"
 
