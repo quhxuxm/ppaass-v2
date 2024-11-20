@@ -20,7 +20,7 @@ pub enum DestinationTransport {
 }
 impl DestinationTransport {
     pub async fn new_tcp(
-        dst_addresses: UnifiedAddress,
+        dst_addresses: &UnifiedAddress,
         config: Arc<Config>,
     ) -> Result<Self, ProxyError> {
         let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
@@ -34,7 +34,7 @@ impl DestinationTransport {
             *config.dst_buffer_size(),
         )))
     }
-    pub async fn new_udp(dst_addresses: UnifiedAddress) -> Result<Self, ProxyError> {
+    pub async fn new_udp(dst_addresses: &UnifiedAddress) -> Result<Self, ProxyError> {
         let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
         let dst_udp_socket = UdpSocket::bind("0.0.0.0:0").await?;
         dst_udp_socket.connect(dst_addresses.as_slice()).await?;

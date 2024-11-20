@@ -71,16 +71,16 @@ impl TryFrom<UnifiedAddress> for Bytes {
         Ok(result.into())
     }
 }
-impl TryFrom<UnifiedAddress> for Vec<SocketAddr> {
+impl TryFrom<&UnifiedAddress> for Vec<SocketAddr> {
     type Error = DomainError;
-    fn try_from(value: UnifiedAddress) -> Result<Self, Self::Error> {
+    fn try_from(value: &UnifiedAddress) -> Result<Self, Self::Error> {
         match value {
             UnifiedAddress::Domain { host, port } => {
                 let socket_addresses = format!("{host}:{port}").to_socket_addrs()?;
                 let socket_addresses = socket_addresses.collect::<Vec<SocketAddr>>();
                 Ok(socket_addresses)
             }
-            UnifiedAddress::Ip(socket_addr) => Ok(vec![socket_addr]),
+            UnifiedAddress::Ip(socket_addr) => Ok(vec![*socket_addr]),
         }
     }
 }

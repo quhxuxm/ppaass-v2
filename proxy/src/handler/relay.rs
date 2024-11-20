@@ -273,7 +273,7 @@ pub async fn relay(
         } = relay_info;
         let dest_transport = match relay_type {
             RelayType::Tcp => {
-                match DestinationTransport::new_tcp(dst_address, server_state.config().clone())
+                match DestinationTransport::new_tcp(&dst_address, server_state.config().clone())
                     .await
                 {
                     Ok(dest_transport) => dest_transport,
@@ -288,7 +288,7 @@ pub async fn relay(
                     }
                 }
             }
-            RelayType::Udp => match DestinationTransport::new_udp(dst_address).await {
+            RelayType::Udp => match DestinationTransport::new_udp(&dst_address).await {
                 Ok(dest_transport) => dest_transport,
                 Err(e) => {
                     error!(
