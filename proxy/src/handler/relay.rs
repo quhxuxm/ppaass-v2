@@ -17,7 +17,6 @@ use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::relay::{RelayInfo, RelayType, RelayUpgradeFailureReason};
 use ppaass_domain::session::Encryption;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{debug, error};
 struct RelayAgentToDestValues {
