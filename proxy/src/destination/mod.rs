@@ -1,11 +1,13 @@
 pub mod read;
 pub mod write;
+mod pool;
 use crate::bo::config::Config;
 use crate::destination::read::DestinationTransportRead;
 use crate::destination::write::DestinationTransportWrite;
 use crate::error::ProxyError;
 use bytes::BytesMut;
 use futures_util::StreamExt;
+use ppaass_domain::address::UnifiedAddress;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,9 +20,10 @@ pub enum DestinationTransport {
 }
 impl DestinationTransport {
     pub async fn new_tcp(
-        dst_addresses: Vec<SocketAddr>,
+        dst_addresses: UnifiedAddress,
         config: Arc<Config>,
     ) -> Result<Self, ProxyError> {
+        let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
         let dst_tcp_stream = TcpStream::connect(dst_addresses.as_slice()).await?;
         let mut dst_tcp_stream = TimeoutStream::new(dst_tcp_stream);
         dst_tcp_stream.set_read_timeout(Some(Duration::from_secs(*config.dst_read_timeout())));
@@ -31,7 +34,8 @@ impl DestinationTransport {
             *config.dst_buffer_size(),
         )))
     }
-    pub async fn new_udp(dst_addresses: Vec<SocketAddr>) -> Result<Self, ProxyError> {
+    pub async fn new_udp(dst_addresses: UnifiedAddress) -> Result<Self, ProxyError> {
+        let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
         let dst_udp_socket = UdpSocket::bind("0.0.0.0:0").await?;
         dst_udp_socket.connect(dst_addresses.as_slice()).await?;
         Ok(DestinationTransport::Udp(dst_udp_socket))

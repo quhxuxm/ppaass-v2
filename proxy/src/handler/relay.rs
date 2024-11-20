@@ -271,21 +271,9 @@ pub async fn relay(
             relay_type,
             ..
         } = relay_info;
-        let dst_addresses: Vec<SocketAddr> = match dst_address.try_into() {
-            Ok(dst_addresses) => dst_addresses,
-            Err(e) => {
-                error!(
-                    session_token = { &session_token },
-                    relay_info_token = { &relay_info_token },
-                    "Fail to parse destination address to socket address: {}",
-                    e
-                );
-                return;
-            }
-        };
         let dest_transport = match relay_type {
             RelayType::Tcp => {
-                match DestinationTransport::new_tcp(dst_addresses, server_state.config().clone())
+                match DestinationTransport::new_tcp(dst_address, server_state.config().clone())
                     .await
                 {
                     Ok(dest_transport) => dest_transport,
@@ -300,7 +288,7 @@ pub async fn relay(
                     }
                 }
             }
-            RelayType::Udp => match DestinationTransport::new_udp(dst_addresses).await {
+            RelayType::Udp => match DestinationTransport::new_udp(dst_address).await {
                 Ok(dest_transport) => dest_transport,
                 Err(e) => {
                     error!(

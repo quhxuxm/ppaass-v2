@@ -5,12 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
 use std::net::{SocketAddr, ToSocketAddrs};
 /// The unified address which can support both IP V4, IP V6 and Domain
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
 pub enum UnifiedAddress {
     Domain { host: String, port: u16 },
     Ip(SocketAddr),
 }
-
 impl Display for UnifiedAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -26,7 +25,6 @@ impl Display for UnifiedAddress {
         }
     }
 }
-
 impl TryFrom<String> for UnifiedAddress {
     type Error = DomainError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -59,7 +57,6 @@ impl TryFrom<String> for UnifiedAddress {
         }
     }
 }
-
 impl TryFrom<Bytes> for UnifiedAddress {
     type Error = DomainError;
     fn try_from(value: Bytes) -> Result<Self, Self::Error> {
@@ -67,7 +64,6 @@ impl TryFrom<Bytes> for UnifiedAddress {
         Ok(result)
     }
 }
-
 impl TryFrom<UnifiedAddress> for Bytes {
     type Error = DomainError;
     fn try_from(value: UnifiedAddress) -> Result<Self, Self::Error> {
@@ -75,7 +71,6 @@ impl TryFrom<UnifiedAddress> for Bytes {
         Ok(result.into())
     }
 }
-
 impl TryFrom<UnifiedAddress> for Vec<SocketAddr> {
     type Error = DomainError;
     fn try_from(value: UnifiedAddress) -> Result<Self, Self::Error> {
@@ -89,7 +84,6 @@ impl TryFrom<UnifiedAddress> for Vec<SocketAddr> {
         }
     }
 }
-
 impl From<SocketAddr> for UnifiedAddress {
     fn from(value: SocketAddr) -> Self {
         UnifiedAddress::Ip(value)
