@@ -4,8 +4,6 @@ use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::crypto::ProxyRsaCryptoFetcher;
 use crate::error::ProxyError;
 use crate::{handler, publish_server_event};
-use axum::routing::{get, post};
-use axum::Router;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -18,7 +16,6 @@ use tracing::{debug, error};
 pub struct ProxyServer {
     state: Arc<ServerState>,
 }
-
 impl ProxyServer {
     pub fn new(config: Arc<Config>) -> Result<(Self, Receiver<ProxyServerEvent>), ProxyError> {
         let (server_event_tx, server_event_rx) = channel::<ProxyServerEvent>(1024);
@@ -35,24 +32,18 @@ impl ProxyServer {
             server_event_rx,
         ))
     }
-
     async fn concrete_start_server(state: Arc<ServerState>) -> Result<(), ProxyError> {
-        let session_server_port = *state.config().port();
-        let app = Router::new()
-            .route("/session/create", post(handler::create_session))
-            .route("/session", get(handler::get_all_sessions))
-            .route("/session/:session_token", get(handler::get_session))
-            .route("/relay/:session_token/:relay_info", get(handler::relay))
-            .with_state(state);
-        let session_server_listener = TcpListener::bind(SocketAddr::new(
+        let server_port = *state.config().port();
+        let server_listener = TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-            session_server_port,
+            server_port,
         ))
-        .await?;
-        axum::serve(session_server_listener, app).await?;
+            .await?;
+        loop {
+            let (agent_connection, agent_socket_addr) = server_listener.accept().await?;
+        }
         Ok(())
     }
-
     pub async fn start(
         &self,
         server_event_rx: Receiver<ProxyServerEvent>,
@@ -97,7 +88,7 @@ impl ProxyServer {
                             &server_event_tx_clone,
                             ProxyServerEvent::SessionClosed(session_token.clone()),
                         )
-                        .await;
+                            .await;
                     }
                     sleep(Duration::from_secs(60 * 5)).await;
                 }
@@ -107,7 +98,7 @@ impl ProxyServer {
             self.state.server_event_tx(),
             ProxyServerEvent::ServerStartup,
         )
-        .await;
+            .await;
         Ok(server_event_rx)
     }
 }

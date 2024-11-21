@@ -20,6 +20,7 @@ lto = "fat"
 [dependencies]
 ppaass-domain = { path = "../domain", package = "domain" }
 ppaass-crypto = { path = "../crypto", package = "crypto" }
+ppaass-codec = { path = "../codec", package = "codec" }
 futures = { workspace = true }
 futures-util = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -30,16 +31,10 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tr
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
-tokio-util = { workspace = true, features = ["codec"] }
 bytes = { workspace = true }
 derive_builder = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-axum = { workspace = true, features = ["ws", "tracing", "tokio", "macros"] }
-axum-macros = { workspace = true }
-tokio-tungstenite = { workspace = true }
-hex = { workspace = true }
-base64 = { workspace = true }
 pretty-hex = { workspace = true }
 chrono = { workspace = true }
 tokio-io-timeout = { workspace = true }

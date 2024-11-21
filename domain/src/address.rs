@@ -1,5 +1,4 @@
 use crate::error::DomainError;
-use bytes::Bytes;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
@@ -55,20 +54,6 @@ impl TryFrom<String> for UnifiedAddress {
                 }
             }
         }
-    }
-}
-impl TryFrom<Bytes> for UnifiedAddress {
-    type Error = DomainError;
-    fn try_from(value: Bytes) -> Result<Self, Self::Error> {
-        let result = bincode::deserialize::<UnifiedAddress>(&value)?;
-        Ok(result)
-    }
-}
-impl TryFrom<UnifiedAddress> for Bytes {
-    type Error = DomainError;
-    fn try_from(value: UnifiedAddress) -> Result<Self, Self::Error> {
-        let result = bincode::serialize(&value)?;
-        Ok(result.into())
     }
 }
 impl TryFrom<&UnifiedAddress> for Vec<SocketAddr> {

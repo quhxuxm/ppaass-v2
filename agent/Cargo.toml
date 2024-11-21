@@ -36,11 +36,6 @@ bytes = { workspace = true }
 derive_builder = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-tokio-tungstenite = { workspace = true }
-hex = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
-base64 = { workspace = true }
-reqwest-websocket = { workspace = true }
 pretty-hex = { workspace = true }
 httpcodec = { workspace = true }
 bytecodec = { workspace = true }
