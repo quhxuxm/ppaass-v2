@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytes = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
 rand = { workspace = true }
 aes = { workspace = true }

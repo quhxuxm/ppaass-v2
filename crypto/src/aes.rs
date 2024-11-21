@@ -1,19 +1,18 @@
 use crate::error::CryptoError;
 use crate::random_32_bytes;
 use aes::Aes256;
-use bytes::Bytes;
 use cipher::block_padding::Pkcs7;
 use cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
-pub fn generate_aes_encryption_token() -> Bytes {
+pub fn generate_aes_encryption_token() -> Vec<u8> {
     random_32_bytes()
 }
-pub fn encrypt_with_aes(encryption_token: &Bytes, target: &[u8]) -> Result<Vec<u8>, CryptoError> {
-    let aes_encryptor = Aes256::new(encryption_token[..].into());
+pub fn encrypt_with_aes(encryption_token: &[u8], target: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    let aes_encryptor = Aes256::new(encryption_token.into());
     let result = aes_encryptor.encrypt_padded_vec::<Pkcs7>(target);
     Ok(result)
 }
-pub fn decrypt_with_aes(encryption_token: &Bytes, target: &[u8]) -> Result<Vec<u8>, CryptoError> {
-    let aes_decrypt = Aes256::new(encryption_token[..].into());
+pub fn decrypt_with_aes(encryption_token: &[u8], target: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    let aes_decrypt = Aes256::new(encryption_token.into());
     let result = aes_decrypt
         .decrypt_padded_vec::<Pkcs7>(target)
         .map_err(|e| CryptoError::Aes(format!("Fail to decrypt with aes block: {e:?}")))?;

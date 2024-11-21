@@ -5,6 +5,7 @@ use ppaass_domain::session::{Encryption, SessionInitRequest};
 use std::sync::Arc;
 use tokio_util::bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
+/// Session init request encoder will be used by agent side
 pub struct SessionInitRequestEncoder<F>
 where
     F: RsaCryptoFetcher,
@@ -47,6 +48,7 @@ where
         Ok(self.length_delimited_codec.encode(session_init_request_bytes.into(), dst)?)
     }
 }
+/// Session init request decoder will be used by proxy side
 pub struct SessionInitRequestDecoder<F>
 where
     F: RsaCryptoFetcher,
