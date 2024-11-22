@@ -1,6 +1,6 @@
 use crate::error::CodecError;
+use crate::RsaCryptoHolder;
 use ppaass_crypto::error::CryptoError;
-use ppaass_crypto::rsa::RsaCryptoFetcher;
 use ppaass_domain::session::{Encryption, SessionInitResponse};
 use std::sync::Arc;
 use tokio_util::bytes::BytesMut;
@@ -8,14 +8,14 @@ use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
 /// Session init response encoder will be used by proxy side
 pub struct SessionInitResponseEncoder<F>
 where
-    F: RsaCryptoFetcher,
+    F: RsaCryptoHolder,
 {
     length_delimited_codec: LengthDelimitedCodec,
     rsa_crypto_fetcher: Arc<F>,
 }
 impl<F> SessionInitResponseEncoder<F>
 where
-    F: RsaCryptoFetcher,
+    F: RsaCryptoHolder,
 {
     pub fn new(rsa_crypto_fetcher: Arc<F>) -> Self {
         Self {
@@ -26,14 +26,14 @@ where
 }
 impl<F> Encoder<(String, SessionInitResponse)> for SessionInitResponseEncoder<F>
 where
-    F: RsaCryptoFetcher,
+    F: RsaCryptoHolder,
 {
     type Error = CodecError;
     fn encode(&mut self, item: (String, SessionInitResponse), dst: &mut BytesMut) -> Result<(), Self::Error> {
         let (auth_token, SessionInitResponse {
             proxy_encryption, session_token, status
         }) = item;
-        let rsa_crypto = self.rsa_crypto_fetcher.fetch(&auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")))?;
+        let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")))?;
         let proxy_encryption = match proxy_encryption {
             Encryption::Plain => proxy_encryption,
             Encryption::Aes(aes_token) => {
@@ -52,7 +52,7 @@ where
 /// Session init response encoder will be used by agent side
 pub struct SessionInitResponseDecoder<F>
 where
-    F: RsaCryptoFetcher,
+    F: RsaCryptoHolder,
 {
     length_delimited_codec: LengthDelimitedCodec,
     rsa_crypto_fetcher: Arc<F>,
@@ -60,7 +60,7 @@ where
 }
 impl<F> SessionInitResponseDecoder<F>
 where
-    F: RsaCryptoFetcher,
+    F: RsaCryptoHolder,
 {
     pub fn new(auth_token: String, rsa_crypto_fetcher: Arc<F>) -> Self {
         Self {
@@ -72,7 +72,7 @@ where
 }
 impl<F> Decoder for SessionInitResponseDecoder<F>
 where
-    F: RsaCryptoFetcher,
+    F: RsaCryptoHolder,
 {
     type Item = SessionInitResponse;
     type Error = CodecError;
@@ -82,7 +82,7 @@ where
             None => Ok(None),
             Some(session_init_response_bytes) => {
                 let SessionInitResponse { proxy_encryption, session_token, status } = bincode::deserialize::<SessionInitResponse>(&session_init_response_bytes)?;
-                let rsa_crypto = self.rsa_crypto_fetcher.fetch(&self.auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {}", self.auth_token)))?;
+                let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&self.auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {}", self.auth_token)))?;
                 let proxy_encryption = match proxy_encryption {
                     Encryption::Plain => proxy_encryption,
                     Encryption::Aes(aes_token) => {

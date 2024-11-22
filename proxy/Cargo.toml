@@ -40,3 +40,4 @@ chrono = { workspace = true }
 tokio-io-timeout = { workspace = true }
 mimalloc = { workspace = true }
 deadpool = { workspace = true }
+tokio-util = { workspace = true, features = ["codec"] }

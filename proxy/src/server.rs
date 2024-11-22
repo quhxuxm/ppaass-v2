@@ -1,10 +1,15 @@
 use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
+use crate::codec::SessionInitCodec;
 use crate::crypto::ProxyRsaCryptoFetcher;
 use crate::error::ProxyError;
+use crate::handler::create_session;
 use crate::{handler, publish_server_event};
 use chrono::Utc;
+use futures_util::StreamExt;
+use ppaass_codec::SessionInitRequestDecoder;
+use ppaass_domain::session::SessionInitRequest;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
@@ -40,7 +45,9 @@ impl ProxyServer {
         ))
             .await?;
         loop {
-            let (agent_connection, agent_socket_addr) = server_listener.accept().await?;
+            let (agent_tcp_stream, agent_socket_addr) = server_listener.accept().await?;
+            debug!("Accept agent tcp connection from: {agent_socket_addr}");
+            let (auth_token, agent_tcp_stream) = create_session(agent_tcp_stream, state.clone()).await?;
         }
         Ok(())
     }

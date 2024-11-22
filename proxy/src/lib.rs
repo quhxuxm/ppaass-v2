@@ -7,6 +7,7 @@ mod destination;
 mod error;
 mod handler;
 pub mod server;
+mod codec;
 /// Publish the server event to console
 pub async fn publish_server_event(
     server_event_tx: &Sender<ProxyServerEvent>,

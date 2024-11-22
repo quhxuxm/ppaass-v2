@@ -5,49 +5,12 @@ use rsa::{
     Pkcs1v15Encrypt,
 };
 use rsa::{RsaPrivateKey, RsaPublicKey};
-use std::{fmt::Debug, path::Path, sync::Arc};
+use std::{fmt::Debug, path::Path};
 use std::{fs, io::Read};
 const DEFAULT_AGENT_PRIVATE_KEY_PATH: &str = "AgentPrivateKey.pem";
 const DEFAULT_AGENT_PUBLIC_KEY_PATH: &str = "AgentPublicKey.pem";
 const DEFAULT_PROXY_PRIVATE_KEY_PATH: &str = "ProxyPrivateKey.pem";
 const DEFAULT_PROXY_PUBLIC_KEY_PATH: &str = "ProxyPublicKey.pem";
-
-/// The rsa crypto fetcher,
-/// each player have a rsa crypto
-/// which can be fund from the storage
-/// with user token
-pub trait RsaCryptoFetcher {
-    /// Fetch the rsa crypto by user token
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError>;
-}
-
-impl<T> RsaCryptoFetcher for Arc<T>
-where
-    T: RsaCryptoFetcher,
-{
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
-        RsaCryptoFetcher::fetch(self.as_ref(), auth_token)
-    }
-}
-
-impl<T> RsaCryptoFetcher for &T
-where
-    T: RsaCryptoFetcher,
-{
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
-        RsaCryptoFetcher::fetch(*self, auth_token)
-    }
-}
-
-impl<T> RsaCryptoFetcher for &mut T
-where
-    T: RsaCryptoFetcher,
-{
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
-        RsaCryptoFetcher::fetch(*self, auth_token)
-    }
-}
-
 /// The util to do RSA encryption and decryption.
 #[derive(Debug)]
 pub struct RsaCrypto {
@@ -56,7 +19,6 @@ pub struct RsaCrypto {
     /// The public used to do encryption
     public_key: RsaPublicKey,
 }
-
 impl RsaCrypto {
     pub fn new<A, B>(mut public_key_read: A, mut private_key_read: B) -> Result<Self, CryptoError>
     where
@@ -76,7 +38,6 @@ impl RsaCrypto {
             private_key,
         })
     }
-
     pub fn encrypt(&self, target: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let result = self
             .public_key
@@ -84,7 +45,6 @@ impl RsaCrypto {
             .map_err(|e| CryptoError::Rsa(format!("Fail to encrypt with rsa: {e:?}")))?;
         Ok(result)
     }
-
     pub fn decrypt(&self, target: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let result = self
             .private_key
@@ -93,7 +53,6 @@ impl RsaCrypto {
         Ok(result)
     }
 }
-
 pub fn generate_agent_key_pairs(base_dir: &str, auth_token: &str) -> Result<(), CryptoError> {
     let private_key_path = format!("{base_dir}/{auth_token}/{DEFAULT_AGENT_PRIVATE_KEY_PATH}");
     let private_key_path = Path::new(private_key_path.as_str());
@@ -101,7 +60,6 @@ pub fn generate_agent_key_pairs(base_dir: &str, auth_token: &str) -> Result<(), 
     let public_key_path = Path::new(public_key_path.as_str());
     generate_rsa_key_pairs(private_key_path, public_key_path)
 }
-
 pub fn generate_proxy_key_pairs(base_dir: &str, auth_token: &str) -> Result<(), CryptoError> {
     let private_key_path = format!("{base_dir}/{auth_token}/{DEFAULT_PROXY_PRIVATE_KEY_PATH}");
     let private_key_path = Path::new(private_key_path.as_str());
@@ -109,7 +67,6 @@ pub fn generate_proxy_key_pairs(base_dir: &str, auth_token: &str) -> Result<(), 
     let public_key_path = Path::new(public_key_path.as_str());
     generate_rsa_key_pairs(private_key_path, public_key_path)
 }
-
 fn generate_rsa_key_pairs(
     private_key_path: &Path,
     public_key_path: &Path,

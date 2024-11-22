@@ -1,81 +1,35 @@
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::session::SessionBuilder;
 use crate::bo::state::ServerState;
+use crate::codec::SessionInitCodec;
 use crate::error::ProxyError;
 use crate::publish_server_event;
-use axum::extract::{Path, State};
-use axum::Json;
 use chrono::Utc;
+use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::random_32_bytes;
-use ppaass_crypto::rsa::RsaCryptoFetcher;
 use ppaass_domain::generate_uuid;
-use ppaass_domain::session::{
-    CreateSessionRequest, CreateSessionResponse, Encryption, GetSessionResponse,
-};
+use ppaass_domain::session::{Encryption, SessionInitRequest, SessionInitResponse, SessionInitResponseStatus};
 use std::sync::Arc;
-pub async fn get_session(
-    State(server_state): State<Arc<ServerState>>,
-    Path(session_token): Path<String>,
-) -> Result<Json<GetSessionResponse>, ProxyError> {
-    let session_repository = server_state
-        .session_repository()
-        .lock()
-        .map_err(|_| ProxyError::SessionRepositoryLock)?;
-    let session = session_repository
-        .get(&session_token)
-        .ok_or(ProxyError::SessionNotExist(session_token.clone()))?;
-    Ok(Json(GetSessionResponse {
-        session_token,
-        auth_token: session.auth_token().to_owned(),
-        relay_infos: session.relays().to_owned(),
-    }))
-}
-pub async fn get_all_sessions(
-    State(server_state): State<Arc<ServerState>>,
-) -> Result<Json<Vec<GetSessionResponse>>, ProxyError> {
-    let session_repository = server_state
-        .session_repository()
-        .lock()
-        .map_err(|_| ProxyError::SessionRepositoryLock)?;
-    let result = session_repository
-        .iter()
-        .filter_map(|(k, v)| {
-            Some(GetSessionResponse {
-                session_token: k.to_owned(),
-                auth_token: v.auth_token().to_owned(),
-                relay_infos: v.relays().to_owned(),
-            })
-        })
-        .collect::<Vec<GetSessionResponse>>();
-    Ok(Json(result))
-}
-// #[axum::debug_handler]
+use tokio::net::TcpStream;
+use tokio_util::codec::Framed;
+/// Create session in proxy side and return the original agent tcp connection
 pub async fn create_session(
-    State(server_state): State<Arc<ServerState>>,
-    Json(CreateSessionRequest {
-        agent_encryption,
-        auth_token,
-    }): Json<CreateSessionRequest>,
-) -> Result<Json<CreateSessionResponse>, ProxyError> {
-    let rsa_crypto_fetcher = server_state.rsa_crypto_fetcher();
-    let rsa_crypto = rsa_crypto_fetcher
-        .fetch(&auth_token)?
-        .ok_or(ProxyError::RsaCryptoNotExist(auth_token.clone()))?;
+    agent_tcp_stream: TcpStream,
+    server_state: Arc<ServerState>,
+) -> Result<(String, TcpStream), ProxyError> {
+    let agent_session_init_framed = Framed::with_capacity(agent_tcp_stream, SessionInitCodec::new(server_state.rsa_crypto_fetcher().clone()), *server_state.config().agent_buffer_size());
+    let (mut agent_session_init_tx, mut agent_session_init_rx) = agent_session_init_framed.split();
+    let SessionInitRequest {
+        agent_encryption, auth_token
+    } = agent_session_init_rx.next().await.ok_or(ProxyError::AgentTcpConnectionExhausted)??;
     let session_token = generate_uuid();
-    let random_raw_proxy_aes_token = random_32_bytes();
-    let agent_encryption = match &agent_encryption {
-        Encryption::Plain => Encryption::Plain,
-        Encryption::Aes(rsa_encrypted_aes_token) => {
-            Encryption::Aes(rsa_crypto.decrypt(rsa_encrypted_aes_token)?.into())
-        }
-    };
-    let proxy_encryption = Encryption::Aes(random_raw_proxy_aes_token.clone());
+    let proxy_encryption = Encryption::Aes(random_32_bytes());
     let session_creation_time = Utc::now();
     let mut session_builder = SessionBuilder::default();
     session_builder
         .session_token(session_token.clone())
         .agent_encryption(agent_encryption)
-        .auth_token(auth_token)
+        .auth_token(auth_token.clone())
         .proxy_encryption(proxy_encryption.clone())
         .create_time(session_creation_time)
         .update_time(session_creation_time)
@@ -92,10 +46,13 @@ pub async fn create_session(
         server_state.server_event_tx(),
         ProxyServerEvent::SessionStarted(session_token.clone()),
     )
-    .await;
-    let proxy_encryption = Encryption::Aes(rsa_crypto.encrypt(&random_raw_proxy_aes_token)?.into());
-    Ok(Json(CreateSessionResponse {
+        .await;
+    let session_init_response = SessionInitResponse {
         proxy_encryption,
         session_token,
-    }))
+        status: SessionInitResponseStatus::Success,
+    };
+    agent_session_init_tx.send((auth_token.clone(), session_init_response)).await?;
+    let agent_tcp_stream = agent_session_init_rx.reunite(agent_session_init_tx).map_err(|e| ProxyError::AgentTcpConnectionReunite(e.to_string()))?;
+    Ok((auth_token, agent_tcp_stream.into_inner()))
 }

@@ -1,10 +1,6 @@
 use crate::bo::session::SessionBuilderError;
 use crate::bo::state::ServerStateBuilderError;
-use axum::http;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use base64::DecodeError;
-use hex::FromHexError;
+use ppaass_codec::error::CodecError;
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
 use thiserror::Error;
@@ -14,6 +10,8 @@ pub enum ProxyError {
     Io(#[from] std::io::Error),
     #[error("Agent tcp connection exhausted")]
     AgentTcpConnectionExhausted,
+    #[error("Agent tcp connection fail to reunite: {0}")]
+    AgentTcpConnectionReunite(String),
     #[error(transparent)]
     Domain(#[from] DomainError),
     #[error(transparent)]
@@ -35,22 +33,6 @@ pub enum ProxyError {
     #[error(transparent)]
     ServerStateBuilder(#[from] ServerStateBuilderError),
     #[error(transparent)]
-    FromHex(#[from] FromHexError),
-    #[error(transparent)]
-    Base64Decode(#[from] DecodeError),
-    #[error(transparent)]
-    Http(#[from] http::Error),
-}
-impl IntoResponse for ProxyError {
-    fn into_response(self) -> Response {
-        match self {
-            Self::SessionNotExist(session_token) => {
-                (StatusCode::NOT_FOUND, session_token).into_response()
-            }
-            Self::RsaCryptoNotExist(auth_token) => {
-                (StatusCode::NOT_FOUND, auth_token).into_response()
-            }
-            _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
-    }
+    FromHex(#[from] CodecError),
+
 }

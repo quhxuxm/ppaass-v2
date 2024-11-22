@@ -7,9 +7,13 @@ pub enum RelayType {
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RelayRequest {
-    pub dst_address: UnifiedAddress,
-    pub relay_type: RelayType,
     pub session_token: String,
+    pub relay_type: RelayType,
+    pub content: RelayRequestContent,
+}
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct RelayRequestContent {
+    pub dst_address: UnifiedAddress,
     pub payload: Vec<u8>,
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -21,5 +25,12 @@ pub enum RelayResponseStatus {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RelayResponse {
     pub status: RelayResponseStatus,
+    pub session_token: String,
+    pub relay_type: RelayType,
+    pub content: RelayResponseContent,
+}
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct RelayResponseContent {
+    pub dst_address: UnifiedAddress,
     pub payload: Vec<u8>,
 }
