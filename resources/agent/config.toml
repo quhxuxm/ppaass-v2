@@ -1,8 +1,10 @@
 port = 10090
 auth_token = "user1"
 worker_threads = 256
-rsa_dir = "resources/rsa"
-proxy_create_session_entry = "http://45.76.0.10:8080/session/create"
-proxy_relay_entry = "ws://45.76.0.10:8080/relay"
+rsa_dir = "resources/agent/rsa"
+#proxy_addresses = ["45.32.10.177:80"]
+proxy_addresses = ["127.0.0.1:8080"]
 max_log_level = "INFO"
-client_buffer_size = 8388608
+client_relay_buffer_size = 8388608
+proxy_relay_buffer_size = 8388608
+proxy_connection_pool_size = 32

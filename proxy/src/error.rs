@@ -1,4 +1,3 @@
-use crate::bo::session::SessionBuilderError;
 use crate::bo::state::ServerStateBuilderError;
 use ppaass_codec::error::CodecError;
 use ppaass_crypto::error::CryptoError;
@@ -10,31 +9,19 @@ pub enum ProxyError {
     Io(#[from] std::io::Error),
     #[error("Agent tcp connection exhausted")]
     AgentTcpConnectionExhausted,
-    #[error("Unexpected agent packet")]
-    UnexpectedAgentPacket,
-    #[error("Agent tcp connection fail to reunite: {0}")]
-    AgentTcpConnectionReunite(String),
     #[error(transparent)]
     Domain(#[from] DomainError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error("Rsa crypto not exist: {0}")]
     RsaCryptoNotExist(String),
-    #[error("Require encryption for tunnel: {0}.")]
-    SessionRequireEncryptionKey(String),
-    #[error("Require auth token for tunnel.")]
-    SessionRequireAuthToken,
-    #[error("Session [{0}] not exist.")]
-    SessionNotExist(String),
-    #[error("Destination transport not exist.")]
-    DestinationTransportNotExist,
-    #[error("Fail to lock tunnel repository.")]
-    SessionRepositoryLock,
-    #[error(transparent)]
-    SessionBuilder(#[from] SessionBuilderError),
     #[error(transparent)]
     ServerStateBuilder(#[from] ServerStateBuilderError),
     #[error(transparent)]
     FromHex(#[from] CodecError),
-
+}
+impl From<ProxyError> for std::io::Error {
+    fn from(value: ProxyError) -> Self {
+        std::io::Error::new(std::io::ErrorKind::Other, value)
+    }
 }

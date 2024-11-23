@@ -1,6 +1,8 @@
+use crate::bo::state::ServerStateBuilderError;
+use deadpool::managed::BuildError;
+use ppaass_codec::error::CodecError;
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
-use ppaass_domain::relay::RelayUpgradeFailureReason;
 use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AgentError {
@@ -11,11 +13,9 @@ pub enum AgentError {
     #[error("Unsupported protocol: socks4")]
     UnsupportedSocksV4Protocol,
     #[error(transparent)]
-    HttpClient(#[from] reqwest::Error),
-    #[error(transparent)]
-    HttpClientWebSocket(#[from] reqwest_websocket::Error),
-    #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    Codec(#[from] CodecError),
     #[error("Rsa crypto not exist: {0}")]
     RsaCryptoNotExist(String),
     #[error(transparent)]
@@ -26,6 +26,18 @@ pub enum AgentError {
     ParseUrl(#[from] url::ParseError),
     #[error("Unknown host from target url")]
     UnknownHostFromTargetUrl(String),
-    #[error("Fail to upgrade relay websocket: {0} ")]
-    RelayWebSocketUpgrade(RelayUpgradeFailureReason),
+    #[error(transparent)]
+    ServerStateBuilder(#[from] ServerStateBuilderError),
+    #[error(transparent)]
+    ProxyConnectionPoolBuilder(#[from] BuildError),
+    #[error("Proxy connection pool error: {0}")]
+    ProxyConnectionPool(String),
+    #[error("Proxy connection exhausted")]
+    ProxyConnectionExhausted,
+}
+
+impl From<AgentError> for std::io::Error {
+    fn from(value: AgentError) -> Self {
+        std::io::Error::new(std::io::ErrorKind::Other, value)
+    }
 }

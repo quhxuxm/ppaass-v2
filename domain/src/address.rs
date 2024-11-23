@@ -74,3 +74,9 @@ impl From<SocketAddr> for UnifiedAddress {
         UnifiedAddress::Ip(value)
     }
 }
+
+impl From<&SocketAddr> for UnifiedAddress {
+    fn from(value: &SocketAddr) -> Self {
+        UnifiedAddress::Ip(*value)
+    }
+}

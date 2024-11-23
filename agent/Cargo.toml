@@ -20,6 +20,7 @@ lto = "fat"
 [dependencies]
 ppaass-domain = { path = "../domain", package = "domain" }
 ppaass-crypto = { path = "../crypto", package = "crypto" }
+ppaass-codec = { path = "../codec", package = "codec" }
 socks5-impl = { workspace = true, features = ["tokio"] }
 futures = { workspace = true }
 futures-util = { workspace = true }
@@ -28,6 +29,7 @@ toml = { workspace = true }
 accessory = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tracing", "parking_lot", "rt"] }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
@@ -41,3 +43,4 @@ httpcodec = { workspace = true }
 bytecodec = { workspace = true }
 url = { workspace = true }
 mimalloc = { workspace = true }
+deadpool = { workspace = true }

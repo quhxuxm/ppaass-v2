@@ -2,12 +2,12 @@ use crate::bo::event::AgentServerEvent;
 use tokio::sync::mpsc::Sender;
 use tracing::error;
 pub mod bo;
+pub mod codec;
 pub mod crypto;
 mod error;
 pub mod handler;
+mod pool;
 pub mod server;
-mod session;
-pub type HttpClient = reqwest::Client;
 pub async fn publish_server_event(
     server_event_tx: Sender<AgentServerEvent>,
     event: AgentServerEvent,

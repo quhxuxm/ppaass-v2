@@ -35,9 +35,9 @@ bytes = { workspace = true }
 derive_builder = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-pretty-hex = { workspace = true }
+tokio-stream = { workspace = true }
 chrono = { workspace = true }
 tokio-io-timeout = { workspace = true }
 mimalloc = { workspace = true }
-deadpool = { workspace = true }
+
 tokio-util = { workspace = true, features = ["codec"] }

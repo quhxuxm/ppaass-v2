@@ -20,20 +20,27 @@ pub enum DestinationTransport {
 impl DestinationTransport {
     pub async fn new_tcp(
         dst_addresses: &UnifiedAddress,
-        server_state: Arc<ServerState>,
+        server_state: ServerState,
     ) -> Result<Self, ProxyError> {
         let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
         let dst_tcp_stream = TcpStream::connect(dst_addresses.as_slice()).await?;
         let mut dst_tcp_stream = TimeoutStream::new(dst_tcp_stream);
-        dst_tcp_stream.set_read_timeout(Some(Duration::from_secs(*server_state.config().dst_read_timeout())));
-        dst_tcp_stream.set_write_timeout(Some(Duration::from_secs(*server_state.config().dst_write_timeout())));
+        dst_tcp_stream.set_read_timeout(Some(Duration::from_secs(
+            *server_state.config().dst_read_timeout(),
+        )));
+        dst_tcp_stream.set_write_timeout(Some(Duration::from_secs(
+            *server_state.config().dst_write_timeout(),
+        )));
         Ok(DestinationTransport::Tcp(Framed::with_capacity(
             dst_tcp_stream,
             BytesCodec::new(),
             *server_state.config().dst_buffer_size(),
         )))
     }
-    pub async fn new_udp(dst_addresses: &UnifiedAddress, server_state: Arc<ServerState>) -> Result<Self, ProxyError> {
+    pub async fn new_udp(
+        dst_addresses: &UnifiedAddress,
+        server_state: ServerState,
+    ) -> Result<Self, ProxyError> {
         let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
         let dst_udp_socket = UdpSocket::bind("0.0.0.0:0").await?;
         dst_udp_socket.connect(dst_addresses.as_slice()).await?;

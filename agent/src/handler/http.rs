@@ -1,8 +1,6 @@
-use crate::bo::config::Config;
+use crate::bo::state::ServerState;
 use crate::error::AgentError;
-use crate::handler::{
-    generate_relay_websocket, relay_proxy_data, HandlerRequest, RelayProxyDataRequest,
-};
+use crate::handler::{relay, tunnel_init, RelayRequest, TunnelInitHandlerResponse};
 use bytecodec::bytes::{BytesEncoder, RemainingBytesDecoder};
 use bytecodec::io::IoDecodeExt;
 use bytecodec::{EncodeExt, ErrorKind};
@@ -12,12 +10,10 @@ use httpcodec::{
     Response, ResponseEncoder, StatusCode,
 };
 use ppaass_domain::address::UnifiedAddress;
-use ppaass_domain::relay::{RelayInfo, RelayType};
-use reqwest::Url;
-use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tracing::debug;
+use url::Url;
 const CONNECT_METHOD: &str = "connect";
 const OK_CODE: u16 = 200;
 const CONNECTION_ESTABLISHED: &str = "Connection Established";
@@ -51,38 +47,26 @@ async fn parse_http_request(
     }
 }
 pub async fn handle_http_client_tcp_stream(
-    config: Arc<Config>,
-    request: HandlerRequest,
+    mut client_tcp_stream: TcpStream,
+    server_state: ServerState,
 ) -> Result<(), AgentError> {
-    let HandlerRequest {
-        mut client_tcp_stream,
-        session_token,
-        agent_encryption,
-        proxy_encryption,
-        http_client,
-        client_socket_addr,
-    } = request;
     let http_request = parse_http_request(&mut client_tcp_stream).await?;
     let request_method = http_request.method().to_string();
-    let (relay_info, initial_http_request_bytes) =
+    let (destination_address, initial_http_request_bytes) =
         if request_method.to_lowercase() == CONNECT_METHOD {
             let request_target = http_request.request_target();
             let request_url = Url::parse(format!("https://{}", request_target.as_str()).as_str())?;
             debug!("Receive https request: {}", request_url);
             //HTTPS request with proxy
             (
-                RelayInfo {
-                    dst_address: UnifiedAddress::Domain {
-                        host: request_url
-                            .host_str()
-                            .ok_or(AgentError::UnknownHostFromTargetUrl(
-                                request_url.to_string(),
-                            ))?
-                            .to_string(),
-                        port: request_url.port().unwrap_or(HTTPS_PORT),
-                    },
-                    src_address: client_socket_addr.into(),
-                    relay_type: RelayType::Tcp,
+                UnifiedAddress::Domain {
+                    host: request_url
+                        .host_str()
+                        .ok_or(AgentError::UnknownHostFromTargetUrl(
+                            request_url.to_string(),
+                        ))?
+                        .to_string(),
+                    port: request_url.port().unwrap_or(HTTPS_PORT),
                 },
                 None,
             )
@@ -95,30 +79,25 @@ pub async fn handle_http_client_tcp_stream(
             let initial_http_request_bytes: Bytes =
                 http_data_encoder.encode_into_bytes(http_request)?.into();
             (
-                RelayInfo {
-                    dst_address: UnifiedAddress::Domain {
-                        host: request_url
-                            .host_str()
-                            .ok_or(AgentError::UnknownHostFromTargetUrl(
-                                request_url.to_string(),
-                            ))?
-                            .to_string(),
-                        port: request_url.port().unwrap_or(HTTP_PORT),
-                    },
-                    src_address: client_socket_addr.into(),
-                    relay_type: RelayType::Tcp,
+                UnifiedAddress::Domain {
+                    host: request_url
+                        .host_str()
+                        .ok_or(AgentError::UnknownHostFromTargetUrl(
+                            request_url.to_string(),
+                        ))?
+                        .to_string(),
+                    port: request_url.port().unwrap_or(HTTP_PORT),
                 },
                 Some(initial_http_request_bytes),
             )
         };
-    let (proxy_websocket, relay_info_token) = generate_relay_websocket(
-        &session_token,
-        relay_info,
-        &agent_encryption,
-        &config,
-        &http_client,
-    )
-    .await?;
+
+    let TunnelInitHandlerResponse {
+        proxy_tcp_stream,
+        agent_encryption,
+        proxy_encryption,
+    } = tunnel_init(destination_address, server_state.clone()).await?;
+
     if initial_http_request_bytes.is_none() {
         //For https proxy
         let http_connect_success_response = Response::new(
@@ -133,18 +112,16 @@ pub async fn handle_http_client_tcp_stream(
             .encode_into_bytes(http_connect_success_response)?;
         client_tcp_stream.write_all(&response_bytes).await?;
     }
-    relay_proxy_data(
-        &config,
-        RelayProxyDataRequest {
+    relay(
+        RelayRequest {
             client_tcp_stream,
-            proxy_websocket,
-            session_token,
+            proxy_tcp_stream,
             agent_encryption,
             proxy_encryption,
-            relay_info_token,
-            initial_data: initial_http_request_bytes,
+            init_data: initial_http_request_bytes,
         },
+        server_state,
     )
-    .await;
+    .await?;
     Ok(())
 }

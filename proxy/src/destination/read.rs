@@ -1,3 +1,4 @@
+use crate::error::ProxyError;
 use bytes::BytesMut;
 use futures::Stream;
 use futures_util::stream::SplitStream;
@@ -15,16 +16,18 @@ pub enum DestinationTransportRead {
     Udp(Arc<UdpSocket>),
 }
 impl Stream for DestinationTransportRead {
-    type Item = Result<BytesMut, std::io::Error>;
+    type Item = Result<BytesMut, ProxyError>;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.get_mut() {
-            DestinationTransportRead::Tcp(inner_tcp_stream) => inner_tcp_stream.poll_next_unpin(cx),
+            DestinationTransportRead::Tcp(inner_tcp_stream) => {
+                inner_tcp_stream.poll_next_unpin(cx).map_err(ProxyError::Io)
+            }
             DestinationTransportRead::Udp(inner_udp_socket) => {
                 let mut read_buf = [0u8; UDP_READ_BUFFER_SIZE];
                 let mut read_buf = ReadBuf::new(&mut read_buf);
                 match inner_udp_socket.poll_recv(cx, &mut read_buf) {
                     Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(read_buf.filled().into()))),
-                    Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
+                    Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProxyError::Io(e)))),
                     Poll::Pending => Poll::Pending,
                 }
             }
