@@ -1,5 +1,5 @@
 use crate::error::CodecError;
-use ppaass_domain::session::Encryption;
+use ppaass_domain::tunnel::Encryption;
 use std::sync::Arc;
 pub trait EncryptionHolder {
     fn get_encryption(&self, encryption_key: impl AsRef<str>) -> Result<Option<Arc<Encryption>>, CodecError>;

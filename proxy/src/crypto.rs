@@ -1,16 +1,17 @@
 use crate::bo::config::Config;
+use ppaass_codec::error::CodecError;
+use ppaass_codec::RsaCryptoHolder;
 use ppaass_crypto::error::CryptoError;
-use ppaass_crypto::rsa::{RsaCrypto, RsaCryptoFetcher};
+use ppaass_crypto::rsa::RsaCrypto;
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
 use std::path::Path;
 use std::sync::Arc;
 use tracing::error;
-pub struct ProxyRsaCryptoFetcher {
+pub struct ProxyRsaCryptoHolder {
     cache: Arc<HashMap<String, Arc<RsaCrypto>>>,
 }
-
-impl ProxyRsaCryptoFetcher {
+impl ProxyRsaCryptoHolder {
     pub fn new(config: Arc<Config>) -> Result<Self, CryptoError> {
         let mut cache = HashMap::new();
         let rsa_dir_path = config.rsa_dir();
@@ -51,9 +52,8 @@ impl ProxyRsaCryptoFetcher {
         })
     }
 }
-
-impl RsaCryptoFetcher for ProxyRsaCryptoFetcher {
-    fn fetch(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CryptoError> {
+impl RsaCryptoHolder for ProxyRsaCryptoHolder {
+    fn get_rsa_crypto(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CodecError> {
         match self.cache.get(auth_token.as_ref()) {
             None => Ok(None),
             Some(val) => Ok(Some(val.clone())),

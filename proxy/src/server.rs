@@ -1,22 +1,20 @@
 use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
-use crate::codec::SessionInitCodec;
-use crate::crypto::ProxyRsaCryptoFetcher;
+use crate::codec::AgentConnectionCodec;
+use crate::crypto::ProxyRsaCryptoHolder;
+use crate::encryption::{AgentEncryptionHolder, ProxyEncryptionHolder};
 use crate::error::ProxyError;
-use crate::handler::create_session;
+use crate::handler::{RelayStartRequest, TunnelInitResult};
 use crate::{handler, publish_server_event};
 use chrono::Utc;
-use futures_util::StreamExt;
-use ppaass_codec::SessionInitRequestDecoder;
-use ppaass_domain::session::SessionInitRequest;
-use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::time::sleep;
+use tokio_util::codec::Framed;
 use tracing::{debug, error};
 pub struct ProxyServer {
     state: Arc<ServerState>,
@@ -27,8 +25,7 @@ impl ProxyServer {
         let mut server_state_builder = ServerStateBuilder::default();
         server_state_builder
             .config(config.clone())
-            .rsa_crypto_fetcher(Arc::new(ProxyRsaCryptoFetcher::new(config)?))
-            .session_repository(Arc::new(Mutex::new(HashMap::new())))
+            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config)?))
             .server_event_tx(Arc::new(server_event_tx));
         Ok((
             Self {
@@ -37,19 +34,39 @@ impl ProxyServer {
             server_event_rx,
         ))
     }
-    async fn concrete_start_server(state: Arc<ServerState>) -> Result<(), ProxyError> {
-        let server_port = *state.config().port();
+    fn spawn_agent_task(agent_tcp_stream: TcpStream, server_state: Arc<ServerState>) {
+        tokio::spawn(async move {
+            let agent_connection_framed = Framed::with_capacity(agent_tcp_stream, AgentConnectionCodec::new(server_state.rsa_crypto_holder().clone()), *server_state.config().agent_buffer_size());
+            let TunnelInitResult { agent_encryption, proxy_encryption, destination_transport, agent_tcp_stream } = match handler::tunnel_init(agent_connection_framed, server_state.clone()).await {
+                Ok(tunnel_init_result) => tunnel_init_result,
+                Err(e) => {
+                    error!("Fail to init tunnel: {e:?}");
+                    return;
+                }
+            };
+            if let Err(e) = handler::start_relay(agent_tcp_stream, RelayStartRequest {
+                agent_encryption,
+                proxy_encryption,
+                destination_transport,
+            }, server_state).await {
+                error!("Fail to start relay: {e:?}");
+            }
+        });
+    }
+    async fn concrete_start_server(server_state: Arc<ServerState>) -> Result<(), ProxyError> {
+        let server_port = *server_state.config().port();
         let server_listener = TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             server_port,
         ))
             .await?;
+        let agent_encryption_holder = Arc::new(AgentEncryptionHolder::new(server_state.clone()));
+        let proxy_encryption_holder = Arc::new(ProxyEncryptionHolder::new(server_state.clone()));
         loop {
             let (agent_tcp_stream, agent_socket_addr) = server_listener.accept().await?;
             debug!("Accept agent tcp connection from: {agent_socket_addr}");
-            let (auth_token, agent_tcp_stream) = create_session(agent_tcp_stream, state.clone()).await?;
+            Self::spawn_agent_task(agent_tcp_stream, server_state.clone());
         }
-        Ok(())
     }
     pub async fn start(
         &self,
@@ -63,41 +80,6 @@ impl ProxyServer {
                     publish_server_event(&server_event_tx_clone, ProxyServerEvent::ServerStartFail)
                         .await;
                     error!("Fail to start server: {e:?}")
-                }
-            });
-            let server_state = self.state.clone();
-            let server_event_tx_clone = server_state.server_event_tx().clone();
-            tokio::spawn(async move {
-                loop {
-                    let session_token_to_remove = {
-                        let mut lock = match server_state.session_repository().lock() {
-                            Ok(lock) => lock,
-                            Err(e) => {
-                                error!("Fail to lock session repository: {e:?}");
-                                return;
-                            }
-                        };
-                        let mut session_token_to_remove = vec![];
-                        lock.iter().for_each(|(session_token, session)| {
-                            let pass = Utc::now() - session.update_time();
-                            if pass.num_minutes() > 15 {
-                                session_token_to_remove.push(session_token.clone());
-                            }
-                        });
-                        for session_token in session_token_to_remove.iter() {
-                            lock.remove(session_token);
-                            debug!("Remove session from repository: {session_token}");
-                        }
-                        session_token_to_remove
-                    };
-                    for session_token in session_token_to_remove.iter() {
-                        publish_server_event(
-                            &server_event_tx_clone,
-                            ProxyServerEvent::SessionClosed(session_token.clone()),
-                        )
-                            .await;
-                    }
-                    sleep(Duration::from_secs(60 * 5)).await;
                 }
             });
         }

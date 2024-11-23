@@ -1,19 +1,19 @@
 use crate::error::CodecError;
 use crate::RsaCryptoHolder;
 use ppaass_crypto::error::CryptoError;
-use ppaass_domain::session::{Encryption, SessionInitRequest};
+use ppaass_domain::tunnel::{Encryption, TunnelInitRequest};
 use std::sync::Arc;
 use tokio_util::bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
-/// Session init request encoder will be used by agent side
-pub struct SessionInitRequestEncoder<F>
+/// Tunnel init request encoder will be used by agent side
+pub struct TunnelInitRequestEncoder<F>
 where
     F: RsaCryptoHolder,
 {
     length_delimited_codec: LengthDelimitedCodec,
     rsa_crypto_fetcher: Arc<F>,
 }
-impl<F> SessionInitRequestEncoder<F>
+impl<F> TunnelInitRequestEncoder<F>
 where
     F: RsaCryptoHolder,
 {
@@ -24,14 +24,14 @@ where
         }
     }
 }
-impl<F> Encoder<SessionInitRequest> for SessionInitRequestEncoder<F>
+impl<F> Encoder<TunnelInitRequest> for TunnelInitRequestEncoder<F>
 where
     F: RsaCryptoHolder,
 {
     type Error = CodecError;
-    fn encode(&mut self, item: SessionInitRequest, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let SessionInitRequest {
-            agent_encryption, auth_token
+    fn encode(&mut self, item: TunnelInitRequest, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        let TunnelInitRequest {
+            agent_encryption, auth_token, dst_address, tunnel_type,
         } = item;
         let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")))?;
         let agent_encryption = match agent_encryption {
@@ -40,23 +40,25 @@ where
                 Encryption::Aes(rsa_crypto.encrypt(&aes_token)?)
             }
         };
-        let session_init_request = SessionInitRequest {
+        let tunnel_init_request = TunnelInitRequest {
             agent_encryption,
             auth_token,
+            dst_address,
+            tunnel_type,
         };
-        let session_init_request_bytes = bincode::serialize(&session_init_request)?;
-        Ok(self.length_delimited_codec.encode(session_init_request_bytes.into(), dst)?)
+        let tunnel_init_request_bytes = bincode::serialize(&tunnel_init_request)?;
+        Ok(self.length_delimited_codec.encode(tunnel_init_request_bytes.into(), dst)?)
     }
 }
-/// Session init request decoder will be used by proxy side
-pub struct SessionInitRequestDecoder<F>
+/// Tunnel init request decoder will be used by proxy side
+pub struct TunnelInitRequestDecoder<F>
 where
     F: RsaCryptoHolder,
 {
     length_delimited_codec: LengthDelimitedCodec,
     rsa_crypto_fetcher: Arc<F>,
 }
-impl<F> SessionInitRequestDecoder<F>
+impl<F> TunnelInitRequestDecoder<F>
 where
     F: RsaCryptoHolder,
 {
@@ -67,18 +69,18 @@ where
         }
     }
 }
-impl<F> Decoder for SessionInitRequestDecoder<F>
+impl<F> Decoder for TunnelInitRequestDecoder<F>
 where
     F: RsaCryptoHolder,
 {
-    type Item = SessionInitRequest;
+    type Item = TunnelInitRequest;
     type Error = CodecError;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let session_init_request = self.length_delimited_codec.decode(src)?;
-        match session_init_request {
+        let tunnel_init_request = self.length_delimited_codec.decode(src)?;
+        match tunnel_init_request {
             None => Ok(None),
-            Some(session_init_request_bytes) => {
-                let SessionInitRequest { agent_encryption, auth_token } = bincode::deserialize::<SessionInitRequest>(&session_init_request_bytes)?;
+            Some(tunnel_init_request_bytes) => {
+                let TunnelInitRequest { agent_encryption, auth_token, dst_address, tunnel_type, } = bincode::deserialize::<TunnelInitRequest>(&tunnel_init_request_bytes)?;
                 let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")))?;
                 let agent_encryption = match agent_encryption {
                     Encryption::Plain => agent_encryption,
@@ -86,9 +88,11 @@ where
                         Encryption::Aes(rsa_crypto.decrypt(&aes_token)?)
                     }
                 };
-                Ok(Some(SessionInitRequest {
+                Ok(Some(TunnelInitRequest {
                     agent_encryption,
                     auth_token,
+                    dst_address,
+                    tunnel_type,
                 }))
             }
         }

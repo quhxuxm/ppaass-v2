@@ -18,4 +18,6 @@ pub enum CodecError {
     NotEnoughRemainingBytes(u64),
     #[error("Can not found encryption with key: {0}")]
     EncryptionNotExist(String),
+    #[error("Fail to get encryption holder lock")]
+    EncryptionHolderLock,
 }

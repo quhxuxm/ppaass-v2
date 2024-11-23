@@ -7,7 +7,7 @@ use bytes::{Bytes, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::relay::{RelayInfo, RelayUpgradeFailureReason};
-use ppaass_domain::session::Encryption;
+use ppaass_domain::tunnel::Encryption;
 use reqwest::StatusCode;
 use reqwest_websocket::{Message, RequestBuilderExt, WebSocket};
 use std::net::SocketAddr;

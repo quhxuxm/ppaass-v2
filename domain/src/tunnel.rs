@@ -1,3 +1,4 @@
+use crate::address::UnifiedAddress;
 use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub enum Encryption {
@@ -5,20 +6,20 @@ pub enum Encryption {
     Plain,
     Aes(Vec<u8>),
 }
+#[derive(Deserialize, Serialize, Debug, Clone, )]
+pub enum TunnelType {
+    Tcp,
+    Udp,
+}
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct SessionInitRequest {
+pub struct TunnelInitRequest {
     pub agent_encryption: Encryption,
     pub auth_token: String,
+    pub dst_address: UnifiedAddress,
+    pub tunnel_type: TunnelType,
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum SessionInitResponseStatus {
-    Success,
-    Failure,
-}
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct SessionInitResponse {
+pub struct TunnelInitResponse {
     pub proxy_encryption: Encryption,
-    pub session_token: String,
-    pub status: SessionInitResponseStatus,
 }
 

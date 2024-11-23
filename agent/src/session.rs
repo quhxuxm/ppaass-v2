@@ -1,4 +1,4 @@
-use ppaass_domain::session::Encryption;
+use ppaass_domain::tunnel::Encryption;
 pub struct AgentSession {
     pub agent_encryption: Encryption,
     pub proxy_encryption: Encryption,

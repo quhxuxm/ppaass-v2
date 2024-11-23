@@ -10,6 +10,8 @@ pub enum ProxyError {
     Io(#[from] std::io::Error),
     #[error("Agent tcp connection exhausted")]
     AgentTcpConnectionExhausted,
+    #[error("Unexpected agent packet")]
+    UnexpectedAgentPacket,
     #[error("Agent tcp connection fail to reunite: {0}")]
     AgentTcpConnectionReunite(String),
     #[error(transparent)]
@@ -18,15 +20,15 @@ pub enum ProxyError {
     Crypto(#[from] CryptoError),
     #[error("Rsa crypto not exist: {0}")]
     RsaCryptoNotExist(String),
-    #[error("Require encryption for session: {0}.")]
+    #[error("Require encryption for tunnel: {0}.")]
     SessionRequireEncryptionKey(String),
-    #[error("Require auth token for session.")]
+    #[error("Require auth token for tunnel.")]
     SessionRequireAuthToken,
     #[error("Session [{0}] not exist.")]
     SessionNotExist(String),
     #[error("Destination transport not exist.")]
     DestinationTransportNotExist,
-    #[error("Fail to lock session repository.")]
+    #[error("Fail to lock tunnel repository.")]
     SessionRepositoryLock,
     #[error(transparent)]
     SessionBuilder(#[from] SessionBuilderError),

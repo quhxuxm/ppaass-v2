@@ -1,6 +1,7 @@
 mod relay;
-mod session;
-pub use relay::relay;
-pub use session::create_session;
-pub use session::get_all_sessions;
-pub use session::get_session;
+mod tunnel;
+pub use relay::start_relay;
+pub use relay::RelayStartRequest;
+pub use tunnel::tunnel_init;
+pub use tunnel::TunnelInitResult;
+

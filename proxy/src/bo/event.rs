@@ -1,9 +1,10 @@
+use ppaass_domain::address::UnifiedAddress;
 #[derive(Debug)]
 pub enum ProxyServerEvent {
     ServerStartup,
     ServerStartFail,
     ServerTcpBind,
     AgentTcpConnected,
-    SessionStarted(String),
+    TunnelInit(UnifiedAddress),
     SessionClosed(String),
 }

@@ -10,7 +10,7 @@ use crate::{publish_server_event, HttpClient};
 use ppaass_crypto::random_32_bytes;
 use ppaass_crypto::rsa::{RsaCrypto, RsaCryptoFetcher};
 use ppaass_domain::relay::RelayUpgradeFailureReason;
-use ppaass_domain::session::{CreateSessionRequest, CreateSessionResponse, Encryption};
+use ppaass_domain::tunnel::{CreateSessionRequest, CreateSessionResponse, Encryption};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -118,12 +118,12 @@ impl AgentServer {
             http_client.clone(),
             session.clone(),
         )
-        .await?;
+            .await?;
         let tcp_listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::new(0, 0, 0, 0),
             *config.port(),
         )))
-        .await?;
+            .await?;
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let http_client = http_client.clone();
@@ -132,7 +132,7 @@ impl AgentServer {
                 let agent_session_lock = session.lock().await;
                 match agent_session_lock.deref() {
                     None => {
-                        error!("Agent session is not initialized.");
+                        error!("Agent tunnel is not initialized.");
                         continue;
                     }
                     Some(session) => (
@@ -156,7 +156,7 @@ impl AgentServer {
                         agent_encryption: agent_encryption.clone(),
                     },
                 )
-                .await
+                    .await
                 {
                     if let AgentError::RelayWebSocketUpgrade(
                         RelayUpgradeFailureReason::SessionNotFound,
@@ -169,9 +169,9 @@ impl AgentServer {
                             http_client.clone(),
                             session.clone(),
                         )
-                        .await
+                            .await
                         {
-                            error!("Fail to refresh agent session on previous expired: {e:?}");
+                            error!("Fail to refresh agent tunnel on previous expired: {e:?}");
                             return;
                         }
                     }
