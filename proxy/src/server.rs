@@ -6,6 +6,8 @@ use crate::crypto::ProxyRsaCryptoHolder;
 use crate::error::ProxyError;
 use crate::handler::{RelayStartRequest, TunnelInitResult};
 use crate::{handler, publish_server_event};
+use futures_util::StreamExt;
+use ppaass_domain::AgentPacket;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpSocket, TcpStream};
@@ -32,11 +34,26 @@ impl ProxyServer {
     }
     fn spawn_agent_task(agent_tcp_stream: TcpStream, server_state: ServerState) {
         tokio::spawn(async move {
-            let agent_connection_framed = Framed::with_capacity(
+            let mut agent_connection_framed = Framed::with_capacity(
                 agent_tcp_stream,
                 AgentConnectionCodec::new(server_state.rsa_crypto_holder().clone()),
                 *server_state.config().agent_buffer_size(),
             );
+            loop {
+                let agent_packet = agent_connection_framed.next().await;
+                match agent_packet {
+                    None => {
+                        return;
+                    }
+                    Some(Err(e)) => {
+                        return;
+                    }
+                    Some(Ok(AgentPacket::TunnelInit(tunnel_init_request))) => {}
+                    Some(Ok(AgentPacket::Relay(relay))) => {}
+                    Some(Ok(AgentPacket::Heartbeat(heartbeat_ping))) => {}
+                }
+            }
+
             let TunnelInitResult {
                 agent_encryption,
                 proxy_encryption,
