@@ -34,7 +34,8 @@ sudo mkdir /ppaass-v2
 sudo mkdir /ppaass-v2/sourcecode
 sudo mkdir /ppaass-v2/build
 sudo mkdir /ppaass-v2/build/resources
-
+sudo mkdir /ppaass-v2/build/resources/proxy
+sudo mkdir /ppaass-v2/build/resources/proxy/rsa
 # Pull ppaass
 cd /ppaass-v2/sourcecode
 sudo git clone -b main https://github.com/quhxuxm/ppaass-v2.git ppaass-v2
@@ -48,7 +49,7 @@ cargo build --release --package proxy
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/* /ppaass-v2/build/resources
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/rsa/* /ppaass-v2/build/resources/proxy/rsa
 sudo cp /ppaass-v2/sourcecode/ppaass-v2/target/release/ppaass-proxy /ppaass-v2/build/ppaass-v2-proxy
-sudo cp /ppaass-v2/sourcecode/ppaass-v2/ppaass--v2-proxy-start.sh /ppaass-v2/build/
+sudo cp /ppaass-v2/sourcecode/ppaass-v2/ppaass-v2-proxy-start.sh /ppaass-v2/build/
 
 sudo chmod 777 /ppaass-v2/build
 cd /ppaass-v2/build
