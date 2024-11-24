@@ -25,7 +25,7 @@ sudo free -h
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # Start install ppaass
-sudo ps -ef | grep ppaass-proxy-v2 | grep -v grep | awk '{print $2}' | xargs sudo kill
+sudo ps -ef | grep ppaass-v2-proxy | grep -v grep | awk '{print $2}' | xargs sudo kill
 
 sudo rm -rf /ppaass-v2/build
 sudo rm -rf /ppaass-v2/sourcecode
@@ -46,19 +46,20 @@ cargo build --release --package proxy
 
 # ps -ef | grep gradle | grep -v grep | awk '{print $2}' | xargs kill -9
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/* /ppaass-v2/build/resources
-sudo cp /ppaass-v2/sourcecode/ppaass-v2/target/release/ppaass-proxy /ppaass-v2/build/ppaass-proxy-v2
-sudo cp /ppaass-v2/sourcecode/ppaass-v2/ppaass-proxy-v2-start.sh /ppaass-v2/build/
+sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/rsa/* /ppaass-v2/build/resources/proxy/rsa
+sudo cp /ppaass-v2/sourcecode/ppaass-v2/target/release/ppaass-proxy /ppaass-v2/build/ppaass-v2-proxy
+sudo cp /ppaass-v2/sourcecode/ppaass-v2/ppaass--v2-proxy-start.sh /ppaass-v2/build/
 
 sudo chmod 777 /ppaass-v2/build
 cd /ppaass-v2/build
 ls -l
 
-sudo chmod 777 ppaass-proxy-v2
+sudo chmod 777 ppaass-v2-proxy
 sudo chmod 777 *.sh
-sudo dos2unix ./ppaass-proxy-v2-start.sh
+sudo dos2unix ./ppaass-v2-proxy-start.sh
 
 #Start with the low configuration by default
-sudo nohup ./ppaass-proxy-v2-start.sh >run.log 2>&1 &
+sudo nohup ./ppaass-v2-proxy-start.sh >run.log 2>&1 &
 
 ulimit -n 409600
 
