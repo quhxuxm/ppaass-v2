@@ -4,10 +4,11 @@ use deadpool::managed::{Manager, Metrics, Object, Pool, QueueMode, RecycleResult
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpStream;
+use tokio::time::sleep;
 use tracing::debug;
 pub struct ProxyConnectionManager {
-    config: Arc<Config>,
     proxy_addresses: Vec<SocketAddr>,
 }
 
@@ -18,10 +19,7 @@ impl ProxyConnectionManager {
             .iter()
             .filter_map(|addr| SocketAddr::from_str(addr).ok())
             .collect::<Vec<SocketAddr>>();
-        Self {
-            config,
-            proxy_addresses,
-        }
+        Self { proxy_addresses }
     }
 }
 
@@ -30,6 +28,7 @@ impl Manager for ProxyConnectionManager {
     type Error = AgentError;
     async fn create(&self) -> Result<Self::Type, Self::Error> {
         let proxy_tcp_stream = TcpStream::connect(self.proxy_addresses.as_slice()).await?;
+        debug!("Create proxy connection.");
         Ok(proxy_tcp_stream)
     }
     async fn recycle(&self, obj: &mut Self::Type, metrics: &Metrics) -> RecycleResult<Self::Error> {
@@ -48,6 +47,15 @@ impl ProxyConnectionPool {
             .max_size(*config.proxy_connection_pool_size())
             .queue_mode(QueueMode::Fifo)
             .build()?;
+        let pool_clone = pool.clone();
+        let target_pool_size = *config.proxy_connection_pool_size();
+        tokio::spawn(async move {
+            loop {
+                debug!("Resizing proxy connection pool.");
+                pool_clone.resize(target_pool_size);
+                sleep(Duration::from_secs(5)).await;
+            }
+        });
         Ok(Self { pool })
     }
 
