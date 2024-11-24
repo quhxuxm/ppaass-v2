@@ -9,4 +9,4 @@ rand = { workspace = true }
 aes = { workspace = true }
 rsa = { workspace = true }
 cipher = { workspace = true, features = ["block-padding", "alloc"] }
-ecb = { workspace = true }
+
