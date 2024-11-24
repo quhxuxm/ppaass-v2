@@ -80,13 +80,13 @@ pub async fn relay(
     let client_tcp_framed = Framed::with_capacity(
         client_tcp_stream,
         BytesCodec::new(),
-        *server_state.config().client_relay_buffer_size(),
+        *server_state.config().client_relay_buffer_size() as usize,
     );
     let (mut client_tcp_framed_tx, client_tcp_framed_rx) = client_tcp_framed.split::<BytesMut>();
     let proxy_tcp_framed = Framed::with_capacity(
         proxy_tcp_stream,
         LengthDelimitedCodec::new(),
-        *server_state.config().proxy_relay_buffer_size(),
+        *server_state.config().proxy_relay_buffer_size() as usize,
     );
     let (proxy_tcp_framed_tx, proxy_tcp_framed_rx) = proxy_tcp_framed.split();
     if let Some(init_data) = init_data {

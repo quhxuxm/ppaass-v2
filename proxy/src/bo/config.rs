@@ -19,6 +19,10 @@ pub struct Config {
     rsa_dir: PathBuf,
     #[access(get(ty(&str)))]
     max_log_level: String,
+    #[access(get)]
+    server_socket_recv_buffer_size: u32,
+    #[access(get)]
+    server_socket_send_buffer_size: u32,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -31,6 +35,8 @@ impl Default for Config {
             agent_buffer_size: 1024 * 1024 * 8,
             max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/rsa"),
+            server_socket_recv_buffer_size: 1024 * 1024 * 8,
+            server_socket_send_buffer_size: 1024 * 1024 * 8,
         }
     }
 }

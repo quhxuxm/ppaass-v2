@@ -8,7 +8,7 @@ use crate::handler::{RelayStartRequest, TunnelInitResult};
 use crate::{handler, publish_server_event};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpListener, TcpSocket, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
@@ -66,11 +66,19 @@ impl ProxyServer {
     }
     async fn concrete_start_server(server_state: ServerState) -> Result<(), ProxyError> {
         let server_port = *server_state.config().port();
-        let server_listener = TcpListener::bind(SocketAddr::new(
+        let server_socket = TcpSocket::new_v4()?;
+        server_socket.set_keepalive(true)?;
+        server_socket.set_reuseaddr(true)?;
+        server_socket
+            .set_recv_buffer_size(*server_state.config().server_socket_recv_buffer_size())?;
+        server_socket
+            .set_send_buffer_size(*server_state.config().server_socket_send_buffer_size())?;
+        server_socket.set_nodelay(true)?;
+        server_socket.bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             server_port,
-        ))
-        .await?;
+        ))?;
+        let server_listener = server_socket.listen(1024)?;
         loop {
             let (agent_tcp_stream, agent_socket_addr) = server_listener.accept().await?;
             debug!("Accept agent tcp connection from: {agent_socket_addr}");

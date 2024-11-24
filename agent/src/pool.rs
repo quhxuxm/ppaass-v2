@@ -5,10 +5,11 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::time::sleep;
 use tracing::debug;
 pub struct ProxyConnectionManager {
+    config: Arc<Config>,
     proxy_addresses: Vec<SocketAddr>,
 }
 
@@ -19,7 +20,10 @@ impl ProxyConnectionManager {
             .iter()
             .filter_map(|addr| SocketAddr::from_str(addr).ok())
             .collect::<Vec<SocketAddr>>();
-        Self { proxy_addresses }
+        Self {
+            proxy_addresses,
+            config,
+        }
     }
 }
 
@@ -27,8 +31,16 @@ impl Manager for ProxyConnectionManager {
     type Type = TcpStream;
     type Error = AgentError;
     async fn create(&self) -> Result<Self::Type, Self::Error> {
-        let proxy_tcp_stream = TcpStream::connect(self.proxy_addresses.as_slice()).await?;
-        debug!("Create proxy connection.");
+        let proxy_socket = TcpSocket::new_v4()?;
+        proxy_socket.set_keepalive(true)?;
+        proxy_socket.set_reuseaddr(true)?;
+        proxy_socket.set_recv_buffer_size(*self.config.proxy_socket_recv_buffer_size())?;
+        proxy_socket.set_send_buffer_size(*self.config.proxy_socket_send_buffer_size())?;
+        proxy_socket.set_nodelay(true)?;
+        let random_index = rand::random::<usize>() % self.proxy_addresses.len();
+        let proxy_address = &self.proxy_addresses[random_index];
+        let proxy_tcp_stream = proxy_socket.connect(*proxy_address).await?;
+        debug!("Create proxy connection on: {proxy_address}");
         Ok(proxy_tcp_stream)
     }
     async fn recycle(&self, obj: &mut Self::Type, metrics: &Metrics) -> RecycleResult<Self::Error> {
