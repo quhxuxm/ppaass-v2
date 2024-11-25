@@ -27,6 +27,7 @@ impl ProxyConnectionPool {
         let pool_clone = pool.clone();
         let config_clone = config.clone();
         tokio::spawn(Self::check_health_and_close(pool_clone.clone(), config_clone.clone(), rsa_crypto_holder.clone()));
+        tokio::spawn(Self::fill_pool(pool.clone(), config_clone.clone()));
         Ok(Self { pool, config })
     }
     pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
@@ -104,13 +105,12 @@ impl ProxyConnectionPool {
     }
     async fn fill_pool(pool: Arc<Mutex<VecDeque<TcpStream>>>, config: Arc<Config>) -> Result<(), AgentError> {
         loop {
-            let current_pool_size = {
-                let pool = pool.lock().await;
-                pool.len()
-            };
+            let pool_clone = pool.clone();
+            let mut pool = pool.lock().await;
+            let current_pool_size = pool.len();
             if current_pool_size > *config.proxy_connection_pool_size() {
                 for _ in *config.proxy_connection_pool_size()..=current_pool_size {
-                    pool.lock().await.pop_front();
+                    pool.pop_front();
                 }
                 return Ok(());
             }
@@ -118,7 +118,7 @@ impl ProxyConnectionPool {
                 return Ok(());
             }
             debug!("Current pool size: {current_pool_size}");
-            tokio::spawn(Self::create_proxy_tcp_stream(config.clone(), pool.clone()));
+            tokio::spawn(Self::create_proxy_tcp_stream(config.clone(), pool_clone));
         }
     }
 }
