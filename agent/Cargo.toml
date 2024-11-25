@@ -45,3 +45,4 @@ mimalloc = { workspace = true }
 deadpool = { workspace = true }
 socket2 = { workspace = true }
 rand = { workspace = true }
+chrono = { workspace = true }

@@ -3,6 +3,7 @@ use deadpool::managed::BuildError;
 use ppaass_codec::error::CodecError;
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
+use std::net::AddrParseError;
 use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AgentError {
@@ -36,6 +37,10 @@ pub enum AgentError {
     ProxyConnectionExhausted,
     #[error("Invalid proxy data type")]
     InvalidProxyDataType,
+    #[error(transparent)]
+    AddrParse(#[from] AddrParseError),
+    #[error("Unknown error happen: {0}")]
+    Unknown(String),
 }
 impl From<AgentError> for std::io::Error {
     fn from(value: AgentError) -> Self {

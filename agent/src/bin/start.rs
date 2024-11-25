@@ -28,7 +28,7 @@ pub fn main() -> Result<()> {
         .enable_all()
         .build()?;
     runtime.block_on(async {
-        let server = match AgentServer::new(config) {
+        let server = match AgentServer::new(config).await {
             Ok(server) => server,
             Err(e) => {
                 error!("Failed to build server object: {}", e);
