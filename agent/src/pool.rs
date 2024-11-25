@@ -112,7 +112,7 @@ impl ProxyConnectionPool {
                     debug!("Health check push proxy connection back to pool, current pool size: {}", pool.len());
                 }
             }
-            sleep(Duration::from_secs(20)).await;
+            sleep(Duration::from_secs(60)).await;
         }
     }
     async fn fill_pool(pool: Arc<Mutex<VecDeque<TcpStream>>>, config: Arc<Config>) -> Result<(), AgentError> {
