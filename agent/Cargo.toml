@@ -28,7 +28,7 @@ serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 accessory = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tracing", "parking_lot", "rt"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tracing", "parking_lot", "rt", "sync"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
