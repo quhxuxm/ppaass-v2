@@ -1,16 +1,18 @@
 use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
-use crate::codec::AgentConnectionCodec;
+use crate::codec::ControlPacketCodec;
 use crate::crypto::ProxyRsaCryptoHolder;
 use crate::error::ProxyError;
 use crate::handler::{RelayStartRequest, TunnelInitResult};
 use crate::{handler, publish_server_event};
-use futures_util::StreamExt;
-use ppaass_domain::AgentPacket;
+use chrono::Utc;
+use futures_util::{SinkExt, StreamExt};
+use ppaass_domain::heartbeat::HeartbeatPong;
+use ppaass_domain::{AgentControlPacket, ProxyControlPacket};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpSocket, TcpStream};
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
@@ -34,50 +36,59 @@ impl ProxyServer {
     }
     fn spawn_agent_task(agent_tcp_stream: TcpStream, server_state: ServerState) {
         tokio::spawn(async move {
-            let mut agent_connection_framed = Framed::with_capacity(
+            let mut control_framed = Framed::with_capacity(
                 agent_tcp_stream,
-                AgentConnectionCodec::new(server_state.rsa_crypto_holder().clone()),
+                ControlPacketCodec::new(server_state.rsa_crypto_holder().clone()),
                 *server_state.config().agent_buffer_size(),
             );
             loop {
-                let agent_packet = agent_connection_framed.next().await;
-                match agent_packet {
+                let agent_control_packet = control_framed.next().await;
+                match agent_control_packet {
                     None => {
                         return;
                     }
                     Some(Err(e)) => {
+                        error!("Fail to receive agent control packet: {:?}", e);
                         return;
                     }
-                    Some(Ok(AgentPacket::TunnelInit(tunnel_init_request))) => {}
-                    Some(Ok(AgentPacket::Relay(relay))) => {}
-                    Some(Ok(AgentPacket::Heartbeat(heartbeat_ping))) => {}
+                    Some(Ok(AgentControlPacket::TunnelInit(tunnel_init_request))) => {
+                        let TunnelInitResult {
+                            agent_encryption,
+                            proxy_encryption,
+                            destination_transport,
+                            agent_tcp_stream,
+                        } = match handler::tunnel_init(control_framed, tunnel_init_request, server_state.clone()).await {
+                            Ok(tunnel_init_result) => tunnel_init_result,
+                            Err(e) => {
+                                error!("Fail to init tunnel: {e:?}");
+                                return;
+                            }
+                        };
+                        if let Err(e) = handler::start_relay(
+                            agent_tcp_stream,
+                            RelayStartRequest {
+                                agent_encryption,
+                                proxy_encryption,
+                                destination_transport,
+                            },
+                            server_state,
+                        )
+                            .await
+                        {
+                            error!("Fail to start relay: {e:?}");
+                        }
+                        return;
+                    }
+                    Some(Ok(AgentControlPacket::Heartbeat(heartbeat_ping))) => {
+                        debug!("Heartbeat ping received: {:?}", heartbeat_ping);
+                        if let Err(e) = control_framed.send(ProxyControlPacket::Heartbeat(HeartbeatPong {
+                            heartbeat_time: Utc::now(),
+                        })).await {
+                            error!("Fail to send heartbeat pong back to agent: {e:?}");
+                            return;
+                        }
+                    }
                 }
-            }
-
-            let TunnelInitResult {
-                agent_encryption,
-                proxy_encryption,
-                destination_transport,
-                agent_tcp_stream,
-            } = match handler::tunnel_init(agent_connection_framed, server_state.clone()).await {
-                Ok(tunnel_init_result) => tunnel_init_result,
-                Err(e) => {
-                    error!("Fail to init tunnel: {e:?}");
-                    return;
-                }
-            };
-            if let Err(e) = handler::start_relay(
-                agent_tcp_stream,
-                RelayStartRequest {
-                    agent_encryption,
-                    proxy_encryption,
-                    destination_transport,
-                },
-                server_state,
-            )
-            .await
-            {
-                error!("Fail to start relay: {e:?}");
             }
         });
     }
@@ -121,7 +132,7 @@ impl ProxyServer {
             self.server_state.server_event_tx(),
             ProxyServerEvent::ServerStartup,
         )
-        .await;
+            .await;
         Ok(server_event_rx)
     }
 }

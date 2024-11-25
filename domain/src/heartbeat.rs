@@ -2,9 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct HeartbeatPing {
-    heartbeat_time: DateTime<Utc>,
+    pub heartbeat_time: DateTime<Utc>,
 }
-
 impl Default for HeartbeatPing {
     fn default() -> Self {
         Self {
@@ -12,12 +11,10 @@ impl Default for HeartbeatPing {
         }
     }
 }
-
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct HeartbeatPong {
-    heartbeat_time: DateTime<Utc>,
+    pub heartbeat_time: DateTime<Utc>,
 }
-
 impl Default for HeartbeatPong {
     fn default() -> Self {
         Self {

@@ -1,13 +1,14 @@
 use crate::bo::state::ServerState;
-use crate::destination::DestinationTransport;
+use crate::codec::DataPacketCodec;
+use crate::destination::{DestinationDataPacket, DestinationTransport};
 use crate::error::ProxyError;
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use futures_util::StreamExt;
-use ppaass_crypto::aes::{decrypt_with_aes, encrypt_with_aes};
 use ppaass_domain::tunnel::Encryption;
+use ppaass_domain::{AgentDataPacket, ProxyDataPacket};
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt as TokioStreamExt;
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use tokio_util::codec::Framed;
 use tracing::error;
 pub struct RelayStartRequest {
     pub agent_encryption: Encryption,
@@ -24,56 +25,48 @@ pub async fn start_relay(
         proxy_encryption,
         destination_transport,
     } = relay_start_request;
-    let agent_tcp_framed = Framed::with_capacity(
+    let agent_data_framed = Framed::with_capacity(
         agent_tcp_stream,
-        LengthDelimitedCodec::new(),
+        DataPacketCodec::new(agent_encryption, proxy_encryption),
         *server_state.config().agent_buffer_size(),
     );
     let (destination_transport_tx, destination_transport_rx) = destination_transport.split();
-    let (agent_tcp_framed_tx, agent_tcp_framed_rx) = agent_tcp_framed.split();
-    let decrypted_agent_stream = agent_tcp_framed_rx.map_while(move |agent_read_item| {
-        let agent_data = match agent_read_item {
-            Ok(agent_data) => agent_data,
+    let (agent_data_framed_tx, agent_data_framed_rx) = agent_data_framed.split();
+    let agent_data_packet_stream = agent_data_framed_rx.map_while(move |agent_data_packet| {
+        let agent_data_packet = match agent_data_packet {
+            Ok(agent_data_packet) => agent_data_packet,
             Err(e) => {
                 error!("Failed to read agent data: {}", e);
-                return Some(Err(ProxyError::Io(e)));
+                return Some(Err(e));
             }
         };
-        match &agent_encryption {
-            Encryption::Plain => Some(Ok(agent_data)),
-            Encryption::Aes(aes_token) => match decrypt_with_aes(&aes_token, &agent_data) {
-                Ok(decrypted_agent_data) => Some(Ok(BytesMut::from_iter(decrypted_agent_data))),
-                Err(e) => {
-                    error!("Fail to decrypt agent data: {e:?}");
-                    return Some(Err(e.into()));
-                }
-            },
+        match agent_data_packet {
+            AgentDataPacket::Tcp(data) => {
+                Some(Ok(BytesMut::from_iter(data)))
+            }
+            AgentDataPacket::Udp { payload, .. } => {
+                Some(Ok(BytesMut::from_iter(payload)))
+            }
         }
     });
-    let encrypted_destination_stream =
+    let proxy_packet_stream =
         destination_transport_rx.map_while(move |destination_item| {
             let destination_data = match destination_item {
-                Ok(destination_data) => destination_data.freeze(),
+                Ok(destination_data) => destination_data,
                 Err(e) => {
                     error!("Failed to read destination data: {e:?}");
-                    return Some(Err(e.into()));
+                    return Some(Err(e));
                 }
             };
-            match &proxy_encryption {
-                Encryption::Plain => Some(Ok(destination_data)),
-                Encryption::Aes(aes_token) => match encrypt_with_aes(&aes_token, &destination_data)
-                {
-                    Ok(encrypted_destination_data) => {
-                        Some(Ok(Bytes::from(encrypted_destination_data)))
-                    }
-                    Err(e) => {
-                        error!("Fail to encrypt destination data: {e:?}");
-                        Some(Err(ProxyError::Crypto(e).into()))
-                    }
-                },
+            match destination_data {
+                DestinationDataPacket::Tcp(data) => Some(Ok(ProxyDataPacket::Tcp(data))),
+                DestinationDataPacket::Udp { data, destination_address } => Some(Ok(ProxyDataPacket::Udp {
+                    payload: data,
+                    destination_address,
+                }))
             }
         });
-    tokio::spawn(decrypted_agent_stream.forward(destination_transport_tx));
-    tokio::spawn(encrypted_destination_stream.forward(agent_tcp_framed_tx));
+    tokio::spawn(agent_data_packet_stream.forward(destination_transport_tx));
+    tokio::spawn(proxy_packet_stream.forward(agent_data_framed_tx));
     Ok(())
 }

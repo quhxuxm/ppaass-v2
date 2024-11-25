@@ -34,8 +34,9 @@ pub enum AgentError {
     ProxyConnectionPool(String),
     #[error("Proxy connection exhausted")]
     ProxyConnectionExhausted,
+    #[error("Invalid proxy data type")]
+    InvalidProxyDataType,
 }
-
 impl From<AgentError> for std::io::Error {
     fn from(value: AgentError) -> Self {
         std::io::Error::new(std::io::ErrorKind::Other, value)
