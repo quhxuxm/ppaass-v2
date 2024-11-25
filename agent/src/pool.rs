@@ -133,7 +133,7 @@ impl ProxyConnectionPool {
                     debug!("Proxy connection creation add to pool, current pool size: {}",pool.len());
                 }
             }
-            sleep(Duration::from_secs(5)).await;
+            sleep(Duration::from_secs(2)).await;
         }
     }
 }
