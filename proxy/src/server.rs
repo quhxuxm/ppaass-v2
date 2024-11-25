@@ -97,10 +97,6 @@ impl ProxyServer {
         let server_socket = TcpSocket::new_v4()?;
         server_socket.set_keepalive(true)?;
         server_socket.set_reuseaddr(true)?;
-        server_socket
-            .set_recv_buffer_size(*server_state.config().server_socket_recv_buffer_size())?;
-        server_socket
-            .set_send_buffer_size(*server_state.config().server_socket_send_buffer_size())?;
         server_socket.set_nodelay(true)?;
         server_socket.bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
