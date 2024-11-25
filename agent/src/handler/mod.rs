@@ -9,7 +9,7 @@ use ppaass_domain::tunnel::{Encryption, TunnelInitRequest, TunnelInitResponse, T
 use ppaass_domain::{AgentControlPacket, AgentDataPacket, ProxyControlPacket, ProxyDataPacket};
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt as TokioStreamExt;
-use tokio_util::codec::{BytesCodec, Framed, FramedParts, LengthDelimitedCodec};
+use tokio_util::codec::{BytesCodec, Framed, FramedParts};
 use tracing::error;
 pub mod http;
 pub mod socks5;
