@@ -12,7 +12,6 @@ pub struct ProxyConnectionManager {
     config: Arc<Config>,
     proxy_addresses: Vec<SocketAddr>,
 }
-
 impl ProxyConnectionManager {
     pub fn new(config: Arc<Config>) -> Self {
         let proxy_addresses: Vec<SocketAddr> = config
@@ -26,7 +25,6 @@ impl ProxyConnectionManager {
         }
     }
 }
-
 impl Manager for ProxyConnectionManager {
     type Type = TcpStream;
     type Error = AgentError;
@@ -34,8 +32,6 @@ impl Manager for ProxyConnectionManager {
         let proxy_socket = TcpSocket::new_v4()?;
         proxy_socket.set_keepalive(true)?;
         proxy_socket.set_reuseaddr(true)?;
-        proxy_socket.set_recv_buffer_size(*self.config.proxy_socket_recv_buffer_size())?;
-        proxy_socket.set_send_buffer_size(*self.config.proxy_socket_send_buffer_size())?;
         proxy_socket.set_nodelay(true)?;
         let random_index = rand::random::<usize>() % self.proxy_addresses.len();
         let proxy_address = &self.proxy_addresses[random_index];
@@ -48,11 +44,9 @@ impl Manager for ProxyConnectionManager {
         Ok(())
     }
 }
-
 pub struct ProxyConnectionPool {
     pool: Pool<ProxyConnectionManager>,
 }
-
 impl ProxyConnectionPool {
     pub fn new(config: Arc<Config>) -> Result<Self, AgentError> {
         let pool = Pool::builder(ProxyConnectionManager::new(config.clone()))
@@ -70,7 +64,6 @@ impl ProxyConnectionPool {
         });
         Ok(Self { pool })
     }
-
     pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
         let proxy_connection = self
             .pool

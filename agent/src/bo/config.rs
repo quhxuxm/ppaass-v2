@@ -20,10 +20,6 @@ pub struct Config {
     #[access(get)]
     proxy_relay_buffer_size: usize,
     #[access(get)]
-    proxy_socket_recv_buffer_size: u32,
-    #[access(get)]
-    proxy_socket_send_buffer_size: u32,
-    #[access(get)]
     proxy_connection_pool_size: usize,
 }
 impl Default for Config {
@@ -38,8 +34,6 @@ impl Default for Config {
             client_relay_buffer_size: 1024 * 1024 * 8,
             proxy_relay_buffer_size: 1024 * 1024 * 8,
             proxy_connection_pool_size: 32,
-            proxy_socket_recv_buffer_size: 1024 * 1024 * 8,
-            proxy_socket_send_buffer_size: 1024 * 1024 * 8,
         }
     }
 }
