@@ -95,7 +95,7 @@ pub async fn relay(
     let proxy_data_framed = Framed::with_capacity(
         proxy_tcp_stream,
         DataPacketCodec::new(agent_encryption, proxy_encryption),
-        *server_state.config().proxy_relay_buffer_size() as usize,
+        *server_state.config().proxy_relay_buffer_size(),
     );
     let (proxy_data_framed_tx, proxy_data_framed_rx) = proxy_data_framed.split();
     if let Some(init_data) = init_data {
