@@ -1,5 +1,4 @@
 use crate::bo::state::ServerStateBuilderError;
-use deadpool::managed::BuildError;
 use ppaass_codec::error::CodecError;
 use ppaass_crypto::error::CryptoError;
 use ppaass_domain::error::DomainError;
@@ -29,8 +28,6 @@ pub enum AgentError {
     UnknownHostFromTargetUrl(String),
     #[error(transparent)]
     ServerStateBuilder(#[from] ServerStateBuilderError),
-    #[error(transparent)]
-    ProxyConnectionPoolBuilder(#[from] BuildError),
     #[error("Proxy connection pool error: {0}")]
     ProxyConnectionPool(String),
     #[error("Proxy connection exhausted")]

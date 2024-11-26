@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::{TcpSocket, TcpStream};
+use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -25,23 +25,21 @@ impl ProxyConnectionPool {
     pub async fn new(config: Arc<Config>, rsa_crypto_holder: Arc<AgentRsaCryptoHolder>) -> Result<Self, AgentError> {
         let pool = Arc::new(Mutex::new(VecDeque::with_capacity(*config.proxy_connection_pool_size())));
         let pool_clone = pool.clone();
+        let proxy_addresses = Arc::new(config
+            .proxy_addresses()
+            .iter()
+            .filter_map(|addr| SocketAddr::from_str(addr).ok())
+            .collect::<Vec<SocketAddr>>());
         tokio::spawn(Self::check_health_and_close(pool_clone.clone(), config.clone(), rsa_crypto_holder.clone()));
-        tokio::spawn(Self::fill_pool(pool.clone(), config.clone()));
+        tokio::spawn(Self::fill_pool(pool.clone(), proxy_addresses.clone(), config.clone()));
         Ok(Self { pool, config })
     }
     pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
         Self::concrete_take_proxy_connection(self.pool.clone(), self.config.clone()).await
     }
-    async fn create_proxy_tcp_stream(config: Arc<Config>, proxy_connection_tx: Sender<TcpStream>) -> Result<(), AgentError> {
-        let proxy_socket = TcpSocket::new_v4()?;
-        proxy_socket.set_keepalive(true)?;
-        proxy_socket.set_reuseaddr(true)?;
-        proxy_socket.set_nodelay(true)?;
-        let random_index = rand::random::<usize>() % config.proxy_addresses().len();
-        let proxy_address = &config.proxy_addresses()[random_index];
-        let proxy_socket_addr = SocketAddr::from_str(proxy_address)?;
-        let proxy_tcp_stream = proxy_socket.connect(proxy_socket_addr).await?;
-        debug!("Create proxy connection on: {proxy_address}");
+    async fn create_proxy_tcp_stream(_config: Arc<Config>, proxy_addresses: Arc<Vec<SocketAddr>>, proxy_connection_tx: Sender<TcpStream>) -> Result<(), AgentError> {
+        let proxy_tcp_stream = TcpStream::connect(proxy_addresses.as_slice()).await?;
+        debug!("Create proxy connection: {proxy_tcp_stream:?}");
         proxy_connection_tx.send(proxy_tcp_stream).await.map_err(|_| AgentError::ProxyConnectionPool("Fail to send proxy connection".to_string()))?;
         Ok(())
     }
@@ -115,7 +113,7 @@ impl ProxyConnectionPool {
             sleep(Duration::from_secs(60)).await;
         }
     }
-    async fn fill_pool(pool: Arc<Mutex<VecDeque<TcpStream>>>, config: Arc<Config>) -> Result<(), AgentError> {
+    async fn fill_pool(pool: Arc<Mutex<VecDeque<TcpStream>>>, proxy_addresses: Arc<Vec<SocketAddr>>, config: Arc<Config>) -> Result<(), AgentError> {
         debug!("Begin to fill proxy connection pool");
         loop {
             {
@@ -124,7 +122,8 @@ impl ProxyConnectionPool {
                 let current_pool_size = pool.len();
                 debug!("Current pool size: {current_pool_size}");
                 for _ in current_pool_size..*config.proxy_connection_pool_size() {
-                    tokio::spawn(Self::create_proxy_tcp_stream(config.clone(), proxy_connection_tx.clone()));
+                    let proxy_addresses = proxy_addresses.clone();
+                    tokio::spawn(Self::create_proxy_tcp_stream(config.clone(), proxy_addresses, proxy_connection_tx.clone()));
                 }
                 drop(proxy_connection_tx);
                 debug!("Waiting for proxy connection creation");
