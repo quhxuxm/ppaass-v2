@@ -72,55 +72,53 @@ impl ProxyConnectionPool {
     }
     async fn check_health_and_close(pool: Arc<Mutex<VecDeque<TcpStream>>>, config: Arc<Config>, rsa_crypto_holder: Arc<AgentRsaCryptoHolder>) -> Result<(), AgentError> {
         loop {
-            debug!("Begin proxy connection health check");
-            {
-                let (proxy_conn_tx, mut proxy_conn_rx) = channel::<TcpStream>(1024);
-                let mut pool = pool.lock().await;
-                for mut proxy_tcp_stream in pool.drain(..) {
-                    debug!("Checking proxy connection from: {proxy_tcp_stream:?}");
-                    let config = config.clone();
-                    let rsa_crypto_holder = rsa_crypto_holder.clone();
-                    let proxy_conn_tx = proxy_conn_tx.clone();
-                    tokio::spawn(async move {
-                        let mut proxy_ctl_framed = Framed::new(&mut proxy_tcp_stream, ControlPacketCodec::new(config.auth_token().to_owned(), rsa_crypto_holder.clone()));
-                        if let Err(e) = proxy_ctl_framed.send(AgentControlPacket::Heartbeat(HeartbeatPing {
-                            heartbeat_time: Utc::now()
-                        })).await {
-                            error!("Fail to send heartbeat ping to proxy: {e}");
-                            return;
-                        };
-                        let pong_packet = match proxy_ctl_framed.next().await {
-                            None => {
-                                error!("Proxy connection closed already.");
-                                return;
-                            }
-                            Some(Err(e)) => {
-                                error!("Fail to receive heartbeat pong from proxy: {e:?}");
-                                return;
-                            }
-                            Some(Ok(pong_packet)) => pong_packet,
-                        };
-                        match pong_packet {
-                            ProxyControlPacket::TunnelInit(_) => {
-                                error!("Fail to send heartbeat ping to proxy because of receive invalid control packet from proxy.");
-                            }
-                            ProxyControlPacket::Heartbeat(pong) => {
-                                debug!("Received heartbeat from {pong:?}");
-                                if let Err(e) = proxy_conn_tx.send(proxy_tcp_stream).await {
-                                    error!("Fail to send proxy connection: {e}");
-                                };
-                            }
-                        }
-                    });
-                }
-                drop(proxy_conn_tx);
-                debug!("Health check waiting for proxy connection back to pool.");
-                while let Some(proxy_tcp_stream) = proxy_conn_rx.recv().await {
-                    pool.push_back(proxy_tcp_stream);
-                    debug!("Health check push proxy connection back to pool, current pool size: {}", pool.len());
-                }
-            }
             sleep(Duration::from_secs(*config.proxy_connection_heartbeat_interval())).await;
+            debug!("Begin proxy connection health check");
+            let (proxy_conn_tx, mut proxy_conn_rx) = channel::<TcpStream>(1024);
+            let mut pool = pool.lock().await;
+            for mut proxy_tcp_stream in pool.drain(..) {
+                debug!("Checking proxy connection from: {proxy_tcp_stream:?}");
+                let config = config.clone();
+                let rsa_crypto_holder = rsa_crypto_holder.clone();
+                let proxy_conn_tx = proxy_conn_tx.clone();
+                tokio::spawn(async move {
+                    let mut proxy_ctl_framed = Framed::new(&mut proxy_tcp_stream, ControlPacketCodec::new(config.auth_token().to_owned(), rsa_crypto_holder.clone()));
+                    if let Err(e) = proxy_ctl_framed.send(AgentControlPacket::Heartbeat(HeartbeatPing {
+                        heartbeat_time: Utc::now()
+                    })).await {
+                        error!("Fail to send heartbeat ping to proxy: {e}");
+                        return;
+                    };
+                    let pong_packet = match proxy_ctl_framed.next().await {
+                        None => {
+                            error!("Proxy connection closed already.");
+                            return;
+                        }
+                        Some(Err(e)) => {
+                            error!("Fail to receive heartbeat pong from proxy: {e:?}");
+                            return;
+                        }
+                        Some(Ok(pong_packet)) => pong_packet,
+                    };
+                    match pong_packet {
+                        ProxyControlPacket::TunnelInit(_) => {
+                            error!("Fail to send heartbeat ping to proxy because of receive invalid control packet from proxy.");
+                        }
+                        ProxyControlPacket::Heartbeat(pong) => {
+                            debug!("Received heartbeat from {pong:?}");
+                            if let Err(e) = proxy_conn_tx.send(proxy_tcp_stream).await {
+                                error!("Fail to send proxy connection: {e}");
+                            };
+                        }
+                    }
+                });
+            }
+            drop(proxy_conn_tx);
+            debug!("Health check waiting for proxy connection back to pool.");
+            while let Some(proxy_tcp_stream) = proxy_conn_rx.recv().await {
+                pool.push_back(proxy_tcp_stream);
+                debug!("Health check push proxy connection back to pool, current pool size: {}", pool.len());
+            }
         }
     }
     async fn fill_pool(pool: Arc<Mutex<VecDeque<TcpStream>>>, proxy_addresses: Arc<Vec<SocketAddr>>, config: Arc<Config>) -> Result<(), AgentError> {
