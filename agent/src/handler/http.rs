@@ -91,13 +91,12 @@ pub async fn handle_http_client_tcp_stream(
                 Some(initial_http_request_bytes),
             )
         };
-
     let TunnelInitHandlerResponse {
         proxy_tcp_stream,
         agent_encryption,
         proxy_encryption,
+        destination_address,
     } = tunnel_init(destination_address, server_state.clone()).await?;
-
     if initial_http_request_bytes.is_none() {
         //For https proxy
         let http_connect_success_response = Response::new(
@@ -119,9 +118,10 @@ pub async fn handle_http_client_tcp_stream(
             agent_encryption,
             proxy_encryption,
             init_data: initial_http_request_bytes,
+            destination_address,
         },
         server_state,
     )
-    .await?;
+        .await?;
     Ok(())
 }

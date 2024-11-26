@@ -17,6 +17,7 @@ pub struct TunnelInitHandlerResponse {
     proxy_tcp_stream: TcpStream,
     agent_encryption: Encryption,
     proxy_encryption: Encryption,
+    destination_address: UnifiedAddress,
 }
 pub async fn tunnel_init(
     destination_address: UnifiedAddress,
@@ -38,7 +39,7 @@ pub async fn tunnel_init(
         .send(AgentControlPacket::TunnelInit(TunnelInitRequest {
             agent_encryption: agent_encryption.clone(),
             auth_token: server_state.config().auth_token().to_owned(),
-            dst_address: destination_address,
+            dst_address: destination_address.clone(),
             tunnel_type: TunnelType::Tcp,
         }))
         .await?;
@@ -66,6 +67,7 @@ pub async fn tunnel_init(
         proxy_tcp_stream,
         agent_encryption,
         proxy_encryption,
+        destination_address,
     })
 }
 pub struct RelayRequest {
@@ -74,6 +76,7 @@ pub struct RelayRequest {
     pub init_data: Option<Bytes>,
     pub agent_encryption: Encryption,
     pub proxy_encryption: Encryption,
+    pub destination_address: UnifiedAddress,
 }
 pub async fn relay(
     relay_request: RelayRequest,
@@ -85,6 +88,7 @@ pub async fn relay(
         init_data,
         agent_encryption,
         proxy_encryption,
+        destination_address
     } = relay_request;
     let client_tcp_framed = Framed::with_capacity(
         client_tcp_stream,
@@ -103,7 +107,7 @@ pub async fn relay(
             .send(BytesMut::from(init_data.as_ref()))
             .await?;
     }
-    let client_data_stream = client_tcp_framed_rx.map_while(move |client_item| {
+    let client_tcp_framed_rx = client_tcp_framed_rx.map_while(move |client_item| {
         let client_data = match client_item {
             Ok(client_data) => client_data.freeze(),
             Err(e) => {
@@ -113,7 +117,7 @@ pub async fn relay(
         };
         Some(Ok(AgentDataPacket::Tcp(client_data.to_vec())))
     });
-    let proxy_data_stream = proxy_data_framed_rx.map_while(move |proxy_data_packet| {
+    let proxy_data_framed_rx = proxy_data_framed_rx.map_while(move |proxy_data_packet| {
         let proxy_packet_data = match proxy_data_packet {
             Ok(proxy_packet_data) => proxy_packet_data,
             Err(e) => {
@@ -129,7 +133,12 @@ pub async fn relay(
             }
         }
     });
-    tokio::spawn(client_data_stream.forward(proxy_data_framed_tx));
-    tokio::spawn(proxy_data_stream.forward(client_tcp_framed_tx));
+    let (client_to_proxy, proxy_to_client) = futures::join!(client_tcp_framed_rx.forward(proxy_data_framed_tx), proxy_data_framed_rx.forward(client_tcp_framed_tx));
+    if let Err(e) = client_to_proxy {
+        error!("Failed to send client data to proxy, destination: [{destination_address}]: {e:?}");
+    }
+    if let Err(e) = proxy_to_client {
+        error!("Failed to send proxy data to client, destination: [{destination_address}]: {e:?}");
+    }
     Ok(())
 }

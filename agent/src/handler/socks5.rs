@@ -27,6 +27,7 @@ pub async fn handle_socks5_client_tcp_stream(
                 proxy_tcp_stream,
                 agent_encryption,
                 proxy_encryption,
+                destination_address
             } = tunnel_init(
                 match &init_request.address {
                     Address::SocketAddress(dst_addr) => dst_addr.into(),
@@ -37,7 +38,7 @@ pub async fn handle_socks5_client_tcp_stream(
                 },
                 server_state.clone(),
             )
-            .await?;
+                .await?;
             let init_response = Response::new(Reply::Succeeded, init_request.address);
             init_response
                 .write_to_async_stream(&mut client_tcp_stream)
@@ -49,10 +50,11 @@ pub async fn handle_socks5_client_tcp_stream(
                     agent_encryption,
                     proxy_encryption,
                     init_data: None,
+                    destination_address,
                 },
                 server_state,
             )
-            .await?;
+                .await?;
         }
         Command::Bind => {}
         Command::UdpAssociate => {}
