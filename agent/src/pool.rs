@@ -37,6 +37,14 @@ impl ProxyConnectionPool {
     pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
         Self::concrete_take_proxy_connection(self.pool.clone(), self.config.clone()).await
     }
+    pub async fn return_proxy_connection(&self, proxy_tcp_stream: TcpStream) -> Result<(), AgentError> {
+        let mut pool = self.pool.lock().await;
+        if pool.len() >= *self.config.proxy_connection_pool_size() {
+            return Ok(());
+        }
+        pool.push_back(proxy_tcp_stream);
+        Ok(())
+    }
     async fn create_proxy_tcp_stream(_config: Arc<Config>, proxy_addresses: Arc<Vec<SocketAddr>>, proxy_connection_tx: Sender<TcpStream>) -> Result<(), AgentError> {
         let proxy_tcp_stream = TcpStream::connect(proxy_addresses.as_slice()).await?;
         debug!("Create proxy connection: {proxy_tcp_stream:?}");
