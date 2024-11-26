@@ -53,16 +53,18 @@ impl ProxyConnectionPool {
     }
     async fn concrete_take_proxy_connection(pool: Arc<Mutex<VecDeque<TcpStream>>>, _config: Arc<Config>) -> Result<TcpStream, AgentError> {
         loop {
-            debug!("Taking proxy connection");
             let mut pool = pool.lock().await;
+            let current_pool_size = pool.len();
+            debug!("Taking proxy connection, current pool size: {current_pool_size}");
             let proxy_tcp_stream = pool.pop_front();
+            drop(pool);
             match proxy_tcp_stream {
                 None => {
-                    debug!("No proxy connection available, current pool size: {}", pool.len());
+                    debug!("No proxy connection available, current pool size: {current_pool_size}");
                     continue;
                 }
                 Some(proxy_tcp_stream) => {
-                    debug!("Proxy connection available, current pool size: {}", pool.len());
+                    debug!("Proxy connection available, current pool size before take: {current_pool_size}");
                     return Ok(proxy_tcp_stream);
                 }
             }
@@ -118,7 +120,7 @@ impl ProxyConnectionPool {
                     debug!("Health check push proxy connection back to pool, current pool size: {}", pool.len());
                 }
             }
-            sleep(Duration::from_secs(60)).await;
+            sleep(Duration::from_secs(*config.proxy_connection_heartbeat_interval())).await;
         }
     }
     async fn fill_pool(pool: Arc<Mutex<VecDeque<TcpStream>>>, proxy_addresses: Arc<Vec<SocketAddr>>, config: Arc<Config>) -> Result<(), AgentError> {
@@ -140,7 +142,7 @@ impl ProxyConnectionPool {
                     debug!("Proxy connection creation add to pool, current pool size: {}",pool.len());
                 }
             }
-            sleep(Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(*config.proxy_connection_pool_fill_interval())).await;
         }
     }
 }
