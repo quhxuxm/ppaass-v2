@@ -35,22 +35,15 @@ impl Decoder for HttpRequestDecoder {
     type Item = Request<Vec<u8>>;
     type Error = AgentError;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let reader = src.reader();
-        match self.http_request_decoder.decode_exact(reader) {
-            Ok(http_request) => {
-                Ok(Some(http_request))
-            }
-            Err(e) => {
-                match e.kind() {
-                    ErrorKind::IncompleteDecoding => {
-                        Ok(None)
-                    }
-                    _ => {
-                        error!("Failed to decode http request: {}", e);
-                        Err(e.into())
-                    }
+        match self.http_request_decoder.decode_exact(src.chunk()) {
+            Ok(http_request) => Ok(Some(http_request)),
+            Err(e) => match e.kind() {
+                ErrorKind::IncompleteDecoding => Ok(None),
+                _ => {
+                    error!("Failed to decode http request: {}", e);
+                    Err(e.into())
                 }
-            }
+            },
         }
     }
 }
@@ -59,7 +52,10 @@ pub async fn handle_http_client_tcp_stream(
     server_state: ServerState,
 ) -> Result<(), AgentError> {
     let mut http_request_framed = Framed::new(&mut client_tcp_stream, HttpRequestDecoder::new());
-    let http_request = http_request_framed.next().await.ok_or(AgentError::ClientTcpConnectionExhausted)??;
+    let http_request = http_request_framed
+        .next()
+        .await
+        .ok_or(AgentError::ClientTcpConnectionExhausted)??;
     let request_method = http_request.method().to_string();
     let (destination_address, initial_http_request_bytes) =
         if request_method.to_lowercase() == CONNECT_METHOD {
@@ -131,6 +127,6 @@ pub async fn handle_http_client_tcp_stream(
         },
         server_state,
     )
-        .await?;
+    .await?;
     Ok(())
 }

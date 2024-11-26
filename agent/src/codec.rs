@@ -1,7 +1,10 @@
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
 use bytes::BytesMut;
-use ppaass_codec::{AgentControlPacketEncoder, AgentDataPacketEncoder, ProxyControlPacketDecoder, ProxyDataPacketDecoder};
+use ppaass_codec::{
+    AgentControlPacketEncoder, AgentDataPacketEncoder, ProxyControlPacketDecoder,
+    ProxyDataPacketDecoder,
+};
 use ppaass_domain::tunnel::Encryption;
 use ppaass_domain::{AgentControlPacket, AgentDataPacket, ProxyControlPacket, ProxyDataPacket};
 use std::sync::Arc;
@@ -14,7 +17,10 @@ impl ControlPacketCodec {
     pub fn new(auth_token: String, rsa_crypto_holder: Arc<AgentRsaCryptoHolder>) -> Self {
         Self {
             agent_control_packet_encoder: AgentControlPacketEncoder::new(rsa_crypto_holder.clone()),
-            proxy_control_packet_decoder: ProxyControlPacketDecoder::new(auth_token, rsa_crypto_holder),
+            proxy_control_packet_decoder: ProxyControlPacketDecoder::new(
+                auth_token,
+                rsa_crypto_holder,
+            ),
         }
     }
 }
@@ -57,4 +63,3 @@ impl Decoder for DataPacketCodec {
         Ok(self.proxy_data_packet_decoder.decode(src)?)
     }
 }
-
