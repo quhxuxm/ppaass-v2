@@ -4,53 +4,62 @@ use crate::handler::{relay, tunnel_init, RelayRequest, TunnelInitHandlerResponse
 use bytecodec::bytes::{BytesEncoder, RemainingBytesDecoder};
 use bytecodec::io::IoDecodeExt;
 use bytecodec::{EncodeExt, ErrorKind};
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
+use futures_util::StreamExt;
 use httpcodec::{
     BodyDecoder, BodyEncoder, HttpVersion, ReasonPhrase, Request, RequestDecoder, RequestEncoder,
     Response, ResponseEncoder, StatusCode,
 };
 use ppaass_domain::address::UnifiedAddress;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tracing::debug;
+use tokio_util::codec::{Decoder, Framed};
+use tracing::{debug, error};
 use url::Url;
 const CONNECT_METHOD: &str = "connect";
 const OK_CODE: u16 = 200;
 const CONNECTION_ESTABLISHED: &str = "Connection Established";
 const HTTPS_PORT: u16 = 443;
 const HTTP_PORT: u16 = 80;
-async fn parse_http_request(
-    client_tcp_stream: &mut TcpStream,
-) -> Result<Request<Vec<u8>>, AgentError> {
-    let mut http_request_decoder =
-        RequestDecoder::new(BodyDecoder::new(RemainingBytesDecoder::new()));
-    let mut buffer_size = 65536;
-    loop {
-        let mut initial_request_buf = vec![0u8; buffer_size];
-        let size = client_tcp_stream.peek(&mut initial_request_buf).await?;
-        let request_buf = initial_request_buf[..size].to_vec();
-        let mut request_buf_reader = request_buf.reader();
-        return match http_request_decoder.decode_exact(&mut request_buf_reader) {
+struct HttpRequestDecoder {
+    http_request_decoder: RequestDecoder<BodyDecoder<RemainingBytesDecoder>>,
+}
+impl HttpRequestDecoder {
+    pub fn new() -> Self {
+        Self {
+            http_request_decoder: RequestDecoder::default(),
+        }
+    }
+}
+impl Decoder for HttpRequestDecoder {
+    type Item = Request<Vec<u8>>;
+    type Error = AgentError;
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let reader = src.reader();
+        match self.http_request_decoder.decode_exact(reader) {
             Ok(http_request) => {
-                let mut _advance_buf = vec![0u8; size];
-                client_tcp_stream.read_exact(&mut _advance_buf).await?;
-                Ok(http_request)
+                Ok(Some(http_request))
             }
             Err(e) => {
-                if e.kind() == &ErrorKind::IncompleteDecoding {
-                    buffer_size *= 2;
-                    continue;
+                match e.kind() {
+                    ErrorKind::IncompleteDecoding => {
+                        Ok(None)
+                    }
+                    _ => {
+                        error!("Failed to decode http request: {}", e);
+                        Err(e.into())
+                    }
                 }
-                Err(e.into())
             }
-        };
+        }
     }
 }
 pub async fn handle_http_client_tcp_stream(
     mut client_tcp_stream: TcpStream,
     server_state: ServerState,
 ) -> Result<(), AgentError> {
-    let http_request = parse_http_request(&mut client_tcp_stream).await?;
+    let mut http_request_framed = Framed::new(&mut client_tcp_stream, HttpRequestDecoder::new());
+    let http_request = http_request_framed.next().await.ok_or(AgentError::ClientTcpConnectionExhausted)??;
     let request_method = http_request.method().to_string();
     let (destination_address, initial_http_request_bytes) =
         if request_method.to_lowercase() == CONNECT_METHOD {
