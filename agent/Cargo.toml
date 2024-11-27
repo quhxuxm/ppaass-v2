@@ -32,7 +32,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tr
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tracing-appender = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 bytes = { workspace = true }
 derive_builder = { workspace = true }
@@ -42,5 +41,4 @@ httpcodec = { workspace = true }
 bytecodec = { workspace = true }
 url = { workspace = true }
 mimalloc = { workspace = true }
-rand = { workspace = true }
 chrono = { workspace = true }

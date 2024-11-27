@@ -6,6 +6,7 @@ use crate::error::ProxyError;
 use crate::publish_server_event;
 use futures_util::SinkExt;
 use ppaass_crypto::random_32_bytes;
+use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::tunnel::{Encryption, TunnelInitRequest, TunnelInitResponse, TunnelType};
 use ppaass_domain::ProxyControlPacket;
 use tokio::net::TcpStream;
@@ -15,7 +16,7 @@ pub struct TunnelInitResult {
     pub proxy_encryption: Encryption,
     pub destination_transport: DestinationTransport,
     pub agent_tcp_stream: TcpStream,
-
+    pub destination_address: UnifiedAddress,
 }
 /// Create tunnel in proxy side
 pub async fn tunnel_init(
@@ -59,5 +60,6 @@ pub async fn tunnel_init(
         proxy_encryption,
         destination_transport,
         agent_tcp_stream,
+        destination_address: dst_address,
     })
 }

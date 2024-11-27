@@ -45,6 +45,7 @@ impl ProxyServer {
                 let agent_control_packet = control_framed.next().await;
                 match agent_control_packet {
                     None => {
+                        debug!("Agent connection exhausted.");
                         return;
                     }
                     Some(Err(e)) => {
@@ -57,6 +58,7 @@ impl ProxyServer {
                             proxy_encryption,
                             destination_transport,
                             agent_tcp_stream,
+                            destination_address
                         } = match handler::tunnel_init(control_framed, tunnel_init_request, server_state.clone()).await {
                             Ok(tunnel_init_result) => tunnel_init_result,
                             Err(e) => {
@@ -70,6 +72,7 @@ impl ProxyServer {
                                 agent_encryption,
                                 proxy_encryption,
                                 destination_transport,
+                                destination_address,
                             },
                             server_state,
                         )
