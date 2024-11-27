@@ -12,7 +12,7 @@ use httpcodec::{
 use ppaass_domain::address::UnifiedAddress;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tracing::debug;
+use tracing::{debug, error};
 use url::Url;
 const CONNECT_METHOD: &str = "connect";
 const OK_CODE: u16 = 200;
@@ -43,6 +43,7 @@ pub async fn handle_http_client_tcp_stream(
                             continue;
                         }
                         _ => {
+                            error!("Fail to decode http request: {}", e);
                             return Err(e.into());
                         }
                     }
