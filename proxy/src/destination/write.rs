@@ -15,8 +15,8 @@ pub enum DestinationTransportWrite {
     Udp(Arc<UdpSocket>),
 }
 impl DestinationTransportWrite {
-    pub async fn close(self) -> Result<(), ProxyError> {
-        if let DestinationTransportWrite::Tcp(mut inner) = self {
+    pub async fn close(&mut self) -> Result<(), ProxyError> {
+        if let DestinationTransportWrite::Tcp(inner) = self {
             inner.close().await?;
         }
         Ok(())
