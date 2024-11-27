@@ -3,7 +3,7 @@ use crate::error::AgentError;
 use crate::handler::{relay, tunnel_init, RelayRequest, TunnelInitHandlerResponse};
 use bytecodec::bytes::{BytesEncoder, RemainingBytesDecoder};
 use bytecodec::io::IoDecodeExt;
-use bytecodec::{DecodeExt, EncodeExt, Eos, ErrorKind};
+use bytecodec::{EncodeExt, ErrorKind};
 use bytes::{Buf, Bytes};
 use httpcodec::{
     BodyDecoder, BodyEncoder, HttpVersion, ReasonPhrase, RequestDecoder, RequestEncoder,
