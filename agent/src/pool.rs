@@ -46,12 +46,25 @@ impl ProxyConnectionPool {
             config.clone(),
             rsa_crypto_holder.clone(),
         ));
-        tokio::spawn(Self::fill_pool(
-            pool.clone(),
-            proxy_addresses.clone(),
-            config.clone(),
-            filling_connection.clone(),
-        ));
+        {
+            let pool = pool.clone();
+            let proxy_addresses = proxy_addresses.clone();
+            let config = config.clone();
+            let filling_connection = filling_connection.clone();
+            tokio::spawn(async move {
+                loop {
+                    if let Err(e) = Self::fill_pool(
+                        pool.clone(),
+                        proxy_addresses.clone(),
+                        config.clone(),
+                        filling_connection.clone(),
+                    ).await {
+                        error!("Failed to fill pool: {}", e);
+                    };
+                    sleep(Duration::from_secs(*config.proxy_connection_pool_fill_interval())).await;
+                }
+            });
+        }
         Ok(Self {
             pool,
             config,
@@ -66,7 +79,7 @@ impl ProxyConnectionPool {
             self.config.clone(),
             self.filling_connection.clone(),
         )
-        .await
+            .await
     }
     pub async fn return_proxy_connection(
         &self,
@@ -116,7 +129,7 @@ impl ProxyConnectionPool {
                         config.clone(),
                         filling_connection.clone(),
                     )
-                    .await?;
+                        .await?;
                     continue;
                 }
                 Some(proxy_tcp_stream) => {
@@ -135,7 +148,7 @@ impl ProxyConnectionPool {
             sleep(Duration::from_secs(
                 *config.proxy_connection_heartbeat_interval(),
             ))
-            .await;
+                .await;
             debug!("Begin proxy connection health check");
             let (proxy_conn_tx, mut proxy_conn_rx) = channel::<TcpStream>(1024);
             let mut pool = pool.lock().await;
@@ -228,6 +241,7 @@ impl ProxyConnectionPool {
                 pool.len()
             );
         }
+        debug!("Proxy connections created, and fill into pool");
         filling_connection.store(false, Ordering::Release);
         Ok(())
     }
