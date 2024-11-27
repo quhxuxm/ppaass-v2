@@ -241,7 +241,7 @@ impl ProxyConnectionPool {
                 pool.len()
             );
         }
-        debug!("Proxy connections created, and fill into pool");
+        debug!("Proxy connections created, and fill into pool, pool size: {}", pool.len());
         filling_connection.store(false, Ordering::Release);
         Ok(())
     }
