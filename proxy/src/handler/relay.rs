@@ -39,22 +39,16 @@ pub async fn start_relay(
     );
     let (destination_transport_tx, destination_transport_rx) = destination_transport.split();
     let (agent_data_framed_tx, agent_data_framed_rx) = agent_data_framed.split();
-    let forward_result = futures::join!(forward_agent_to_destination(&destination_address,agent_data_framed_rx,destination_transport_tx), forward_destination_to_agent(&destination_address, destination_transport_rx,agent_data_framed_tx));
-    if let (Ok(mut destination_transport_tx), Ok(mut agent_data_framed_tx)) = forward_result {
-        if let Err(e) = agent_data_framed_tx.close().await {
-            error!(destination_address={format!("{destination_address}")}, "Failed to close agent tcp steam: {e:?}");
-        };
-        if let Err(e) = destination_transport_tx.close().await {
-            error!(destination_address={format!("{destination_address}")}, "Failed to close destination tcp steam: {e:?}");
-        }
-    }
+    tokio::spawn(forward_agent_to_destination(destination_address.clone(), agent_data_framed_rx, destination_transport_tx));
+    tokio::spawn(forward_destination_to_agent(destination_address, destination_transport_rx, agent_data_framed_tx));
     Ok(())
 }
-async fn forward_agent_to_destination(destination_address: &UnifiedAddress, mut agent_data_framed_rx: AgentDataPacketRead, mut destination_transport_tx: DestinationTransportWrite) -> Result<DestinationTransportWrite, ProxyError> {
+async fn forward_agent_to_destination(destination_address: UnifiedAddress, mut agent_data_framed_rx: AgentDataPacketRead, mut destination_transport_tx: DestinationTransportWrite) -> Result<DestinationTransportWrite, ProxyError> {
     loop {
         match agent_data_framed_rx.next().await {
             None => {
                 destination_transport_tx.flush().await?;
+                destination_transport_tx.close().await?;
                 return Ok(destination_transport_tx);
             }
             Some(Err(e)) => {
@@ -83,11 +77,12 @@ async fn forward_agent_to_destination(destination_address: &UnifiedAddress, mut 
         };
     }
 }
-async fn forward_destination_to_agent(destination_address: &UnifiedAddress, mut destination_transport_rx: DestinationTransportRead, mut agent_data_framed_tx: AgentDataPacketWrite) -> Result<AgentDataPacketWrite, ProxyError> {
+async fn forward_destination_to_agent(destination_address: UnifiedAddress, mut destination_transport_rx: DestinationTransportRead, mut agent_data_framed_tx: AgentDataPacketWrite) -> Result<AgentDataPacketWrite, ProxyError> {
     loop {
         match destination_transport_rx.next().await {
             None => {
                 agent_data_framed_tx.flush().await?;
+                agent_data_framed_tx.close().await?;
                 return Ok(agent_data_framed_tx);
             }
             Some(Err(e)) => {
