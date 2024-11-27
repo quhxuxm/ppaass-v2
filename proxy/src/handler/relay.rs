@@ -35,11 +35,12 @@ pub async fn start_relay(
     );
     let (destination_transport_tx, destination_transport_rx) = destination_transport.split();
     let (agent_data_framed_tx, agent_data_framed_rx) = agent_data_framed.split();
+    let destination_address_clone = destination_address.clone();
     let agent_data_framed_rx = agent_data_framed_rx.map_while(move |agent_data_packet| {
         let agent_data_packet = match agent_data_packet {
             Ok(agent_data_packet) => agent_data_packet,
             Err(e) => {
-                error!("Failed to read agent data: {}", e);
+                error!(destination_address={format!("{destination_address_clone}")}, "Failed to read agent data: {}", e);
                 return Some(Err(e));
             }
         };
@@ -52,12 +53,13 @@ pub async fn start_relay(
             }
         }
     });
+    let destination_address_clone = destination_address.clone();
     let destination_transport_rx =
         destination_transport_rx.map_while(move |destination_item| {
             let destination_data = match destination_item {
                 Ok(destination_data) => destination_data,
                 Err(e) => {
-                    error!("Failed to read destination data: {e:?}");
+                    error!(destination_address={format!("{destination_address_clone}")}, "Failed to read destination data: {e:?}");
                     return Some(Err(e));
                 }
             };
@@ -71,10 +73,10 @@ pub async fn start_relay(
         });
     let (agent_to_destination, destination_to_agent) = futures::join!(agent_data_framed_rx.forward(destination_transport_tx),destination_transport_rx.forward(agent_data_framed_tx));
     if let Err(e) = agent_to_destination {
-        error!("Failed to send agent data to destination, destination: [{destination_address}]: {e:?}");
+        error!(destination_address={format!("{destination_address}")}, "Failed to send agent data to destination: {e:?}");
     }
     if let Err(e) = destination_to_agent {
-        error!("Failed to send destination data to agent, destination: [{destination_address}]: {e:?}");
+        error!(destination_address={format!("{destination_address}")}, "Failed to send destination data to agent: {e:?}");
     }
     Ok(())
 }
