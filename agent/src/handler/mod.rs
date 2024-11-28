@@ -2,21 +2,17 @@ use crate::bo::state::ServerState;
 use crate::codec::{ControlPacketCodec, DataPacketCodec};
 use crate::error::AgentError;
 use bytes::{Bytes, BytesMut};
-use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::random_32_bytes;
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::tunnel::{Encryption, TunnelInitRequest, TunnelInitResponse, TunnelType};
 use ppaass_domain::{AgentControlPacket, AgentDataPacket, ProxyControlPacket, ProxyDataPacket};
 use tokio::net::TcpStream;
+use tokio_stream::StreamExt as TokioStreamExt;
 use tokio_util::codec::{BytesCodec, Framed, FramedParts};
 use tracing::error;
 pub mod http;
 pub mod socks5;
-type ProxyDataPacketWrite = SplitSink<Framed<TcpStream, DataPacketCodec>, AgentDataPacket>;
-type ProxyDataPacketRead = SplitStream<Framed<TcpStream, DataPacketCodec>>;
-type ClientDataWrite = SplitSink<Framed<TcpStream, BytesCodec>, BytesMut>;
-type ClientDataRead = SplitStream<Framed<TcpStream, BytesCodec>>;
 pub struct TunnelInitHandlerResponse {
     proxy_tcp_stream: TcpStream,
     agent_encryption: Encryption,
@@ -111,60 +107,38 @@ pub async fn relay(
             .send(BytesMut::from(init_data.as_ref()))
             .await?;
     }
-    tokio::spawn(forward_client_to_proxy(destination_address.clone(), client_tcp_framed_rx, proxy_data_framed_tx));
-    tokio::spawn(forward_proxy_to_client(destination_address, proxy_data_framed_rx, client_tcp_framed_tx));
-    Ok(())
-}
-async fn forward_client_to_proxy(destination_address: UnifiedAddress, mut client_data_read: ClientDataRead, mut proxy_data_packet_write: ProxyDataPacketWrite) -> Result<ProxyDataPacketWrite, AgentError> {
-    loop {
-        match client_data_read.next().await {
-            None => {
-                proxy_data_packet_write.flush().await?;
-                proxy_data_packet_write.close().await?;
-                return Ok(proxy_data_packet_write);
-            }
-            Some(Err(e)) => {
-                error!(destination_address={format!("{destination_address}")},"Fail to forward client data to proxy: {e:?}");
-                proxy_data_packet_write.close().await?;
-                return Err(e.into());
-            }
-            Some(Ok(client_data)) => {
-                if let Err(e) = proxy_data_packet_write.send(AgentDataPacket::Tcp(client_data.to_vec())).await {
-                    error!("Failed to forward client data to proxy: {e:?}");
-                    proxy_data_packet_write.close().await?;
-                    return Err(e);
-                }
+    let client_tcp_framed_rx = client_tcp_framed_rx.map_while(move |client_item| {
+        let client_data = match client_item {
+            Ok(client_data) => client_data.freeze(),
+            Err(e) => {
+                error!("Fail to read client data: {e:?}");
+                return Some(Err(AgentError::Io(e)));
             }
         };
-    }
-}
-async fn forward_proxy_to_client(destination_address: UnifiedAddress, mut proxy_data_read: ProxyDataPacketRead, mut client_data_write: ClientDataWrite) -> Result<ClientDataWrite, AgentError> {
-    loop {
-        match proxy_data_read.next().await {
-            None => {
-                client_data_write.flush().await?;
-                client_data_write.close().await?;
-                return Ok(client_data_write);
+        Some(Ok(AgentDataPacket::Tcp(client_data.to_vec())))
+    });
+    let proxy_data_framed_rx = proxy_data_framed_rx.map_while(move |proxy_data_packet| {
+        let proxy_packet_data = match proxy_data_packet {
+            Ok(proxy_packet_data) => proxy_packet_data,
+            Err(e) => {
+                error!("Failed to read proxy data: {}", e);
+                return Some(Err(e.into()));
             }
-            Some(Err(e)) => {
-                error!(destination_address={format!("{destination_address}")},"Fail to forward destination data to agent: {e:?}");
-                client_data_write.close().await?;
-                return Err(e);
-            }
-            Some(Ok(proxy_data_packet)) => {
-                match proxy_data_packet {
-                    ProxyDataPacket::Tcp(data) => {
-                        if let Err(e) = client_data_write.send(BytesMut::from_iter(data)).await {
-                            error!("Failed to forward client data to proxy: {e:?}");
-                            client_data_write.close().await?;
-                        }
-                    }
-                    ProxyDataPacket::Udp { .. } => {
-                        client_data_write.close().await?;
-                        return Err(AgentError::Unknown("UDP is not supported".to_owned()));
-                    }
-                }
+        };
+        match proxy_packet_data {
+            ProxyDataPacket::Tcp(proxy_data) => Some(Ok(BytesMut::from_iter(proxy_data))),
+            ProxyDataPacket::Udp { destination_address, .. } => {
+                error!("Invalid kind of proxy data, destination address: {destination_address}");
+                Some(Err(AgentError::InvalidProxyDataType.into()))
             }
         }
+    });
+    let (client_to_proxy, proxy_to_client) = futures::join!(client_tcp_framed_rx.forward(proxy_data_framed_tx), proxy_data_framed_rx.forward(client_tcp_framed_tx));
+    if let Err(e) = client_to_proxy {
+        error!("Failed to send client data to proxy, destination: [{destination_address}]: {e:?}");
     }
+    if let Err(e) = proxy_to_client {
+        error!("Failed to send proxy data to client, destination: [{destination_address}]: {e:?}");
+    }
+    Ok(())
 }

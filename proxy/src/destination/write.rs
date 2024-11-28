@@ -14,14 +14,6 @@ pub enum DestinationTransportWrite {
     Tcp(SplitSink<Framed<TimeoutStream<TcpStream>, DestinationDataTcpCodec>, BytesMut>),
     Udp(Arc<UdpSocket>),
 }
-impl DestinationTransportWrite {
-    pub async fn close(&mut self) -> Result<(), ProxyError> {
-        if let DestinationTransportWrite::Tcp(inner) = self {
-            inner.close().await?;
-        }
-        Ok(())
-    }
-}
 impl Sink<BytesMut> for DestinationTransportWrite {
     type Error = ProxyError;
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
