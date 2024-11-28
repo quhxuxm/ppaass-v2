@@ -1,5 +1,5 @@
 [workspace]
-members = ["agent", "codec", "crypto", "domain", "proxy"]
+members = ["agent/core", "codec", "crypto", "domain", "proxy"]
 resolver = "2"
 
 [workspace.dependencies]

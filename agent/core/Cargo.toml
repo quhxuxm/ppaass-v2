@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "ppaass-agent"
+name = "ppaass-agent-core"
 path = "src/bin/start.rs"
 
 [lib]
@@ -18,9 +18,9 @@ codegen-units = 1
 lto = "fat"
 
 [dependencies]
-ppaass-domain = { path = "../domain", package = "domain" }
-ppaass-crypto = { path = "../crypto", package = "crypto" }
-ppaass-codec = { path = "../codec", package = "codec" }
+ppaass-domain = { path = "../../domain", package = "domain" }
+ppaass-crypto = { path = "../../crypto", package = "crypto" }
+ppaass-codec = { path = "../../codec", package = "codec" }
 socks5-impl = { workspace = true, features = ["tokio"] }
 futures = { workspace = true }
 futures-util = { workspace = true }
