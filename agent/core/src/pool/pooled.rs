@@ -42,20 +42,13 @@ impl Pooled {
             let proxy_addresses = proxy_addresses.clone();
             let config = config.clone();
             let filling_connection = filling_connection.clone();
-            tokio::spawn(async move {
-                loop {
-                    if let Err(e) = Self::fill_pool(
-                        pool.clone(),
-                        proxy_addresses.clone(),
-                        config.clone(),
-                        filling_connection.clone(),
-                        pool_size,
-                    ).await {
-                        error!("Failed to fill pool: {}", e);
-                    };
-                    sleep(Duration::from_secs(*config.proxy_connection_pool_fill_interval())).await;
-                }
-            });
+            Self::fill_pool(
+                pool.clone(),
+                proxy_addresses.clone(),
+                config.clone(),
+                filling_connection.clone(),
+                pool_size,
+            ).await;
         }
         Ok(Self {
             pool,
@@ -125,7 +118,7 @@ impl Pooled {
                         filling_connection.clone(),
                         pool_size,
                     )
-                        .await?;
+                        .await;
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
@@ -196,35 +189,37 @@ impl Pooled {
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
         pool_size: usize,
-    ) -> Result<(), AgentError> {
-        debug!("Begin to fill proxy connection pool");
+    ) {
         if filling_connection.load(Ordering::Acquire) {
-            return Ok(());
+            debug!("Filling proxy connection pool, no need to start filling task.");
+            return;
         }
-        filling_connection.store(true, Ordering::Release);
-        let (proxy_connection_tx, mut proxy_connection_rx) = channel::<PooledProxyConnection<TcpStream>>(1024);
-        let mut pool = pool.lock().await;
-        let current_pool_size = pool.len();
-        debug!("Current pool size: {current_pool_size}");
-        for _ in current_pool_size..pool_size {
-            let proxy_addresses = proxy_addresses.clone();
-            tokio::spawn(Self::create_proxy_tcp_stream(
-                config.clone(),
-                proxy_addresses,
-                proxy_connection_tx.clone(),
-            ));
-        }
-        drop(proxy_connection_tx);
-        debug!("Waiting for proxy connection creation");
-        while let Some(proxy_connection) = proxy_connection_rx.recv().await {
-            pool.push_back(proxy_connection);
-            debug!(
+        tokio::spawn(async move {
+            debug!("Begin to fill proxy connection pool");
+            filling_connection.store(true, Ordering::Release);
+            let (proxy_connection_tx, mut proxy_connection_rx) = channel::<PooledProxyConnection<TcpStream>>(1024);
+            let mut pool = pool.lock().await;
+            let current_pool_size = pool.len();
+            debug!("Current pool size: {current_pool_size}");
+            for _ in current_pool_size..pool_size {
+                let proxy_addresses = proxy_addresses.clone();
+                tokio::spawn(Self::create_proxy_tcp_stream(
+                    config.clone(),
+                    proxy_addresses,
+                    proxy_connection_tx.clone(),
+                ));
+            }
+            drop(proxy_connection_tx);
+            debug!("Waiting for proxy connection creation");
+            while let Some(proxy_connection) = proxy_connection_rx.recv().await {
+                pool.push_back(proxy_connection);
+                debug!(
                 "Proxy connection creation add to pool, current pool size: {}",
                 pool.len()
             );
-        }
-        debug!("Proxy connections created, and fill into pool, pool size: {}", pool.len());
-        filling_connection.store(false, Ordering::Release);
-        Ok(())
+            }
+            debug!("Proxy connections created, and fill into pool, pool size: {}", pool.len());
+            filling_connection.store(false, Ordering::Release);
+        });
     }
 }
