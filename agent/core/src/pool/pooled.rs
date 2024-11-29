@@ -126,6 +126,7 @@ impl Pooled {
                         pool_size,
                     )
                         .await?;
+                    sleep(Duration::from_millis(100)).await;
                     continue;
                 }
                 Some(mut proxy_connection) => {
