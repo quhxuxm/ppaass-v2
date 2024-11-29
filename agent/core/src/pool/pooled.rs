@@ -9,7 +9,6 @@ use ppaass_domain::heartbeat::HeartbeatPing;
 use ppaass_domain::{AgentControlPacket, ProxyControlPacket};
 use std::collections::VecDeque;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
