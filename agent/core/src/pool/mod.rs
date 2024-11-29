@@ -7,6 +7,7 @@ use crate::pool::unpooled::UnPooled;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio::net::TcpStream;
 mod pooled;
 mod unpooled;
 mod connection;
@@ -34,7 +35,7 @@ impl ProxyConnectionPool {
             }
         }
     }
-    pub async fn take_proxy_connection(&self) -> Result<PooledProxyConnection, AgentError> {
+    pub async fn take_proxy_connection(&self) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         match self {
             ProxyConnectionPool::UnPooled(un_pooled) => un_pooled.take_proxy_connection().await,
             ProxyConnectionPool::Pooled(pooled) => pooled.take_proxy_connection().await,
@@ -42,7 +43,7 @@ impl ProxyConnectionPool {
     }
     pub async fn return_proxy_connection(
         &self,
-        proxy_tcp_stream: PooledProxyConnection,
+        proxy_tcp_stream: PooledProxyConnection<TcpStream>,
     ) -> Result<(), AgentError> {
         match self {
             ProxyConnectionPool::UnPooled(un_pooled) => un_pooled.return_proxy_connection(proxy_tcp_stream).await,

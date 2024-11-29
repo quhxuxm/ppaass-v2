@@ -15,7 +15,7 @@ use tracing::error;
 pub mod http;
 pub mod socks5;
 pub struct TunnelInitHandlerResponse {
-    proxy_tcp_stream: PooledProxyConnection,
+    proxy_tcp_stream: PooledProxyConnection<TcpStream>,
     agent_encryption: Encryption,
     proxy_encryption: Encryption,
     destination_address: UnifiedAddress,
@@ -73,7 +73,7 @@ pub async fn tunnel_init(
 }
 pub struct RelayRequest {
     pub client_tcp_stream: TcpStream,
-    pub proxy_tcp_stream: PooledProxyConnection,
+    pub proxy_tcp_stream: PooledProxyConnection<TcpStream>,
     pub init_data: Option<Bytes>,
     pub agent_encryption: Encryption,
     pub proxy_encryption: Encryption,
