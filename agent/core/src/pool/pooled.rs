@@ -86,14 +86,14 @@ impl Pooled {
         Ok(())
     }
     async fn create_proxy_tcp_stream(
-        _config: Arc<Config>,
+        config: Arc<Config>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         proxy_connection_tx: Sender<PooledProxyConnection<TcpStream>>,
     ) -> Result<(), AgentError> {
         let proxy_tcp_stream = TcpStream::connect(proxy_addresses.as_slice()).await?;
         debug!("Create proxy connection: {proxy_tcp_stream:?}");
         proxy_connection_tx
-            .send(PooledProxyConnection::new(proxy_tcp_stream))
+            .send(PooledProxyConnection::new(proxy_tcp_stream, config))
             .await
             .map_err(|_| {
                 AgentError::ProxyConnectionPool("Fail to send proxy connection".to_string())
@@ -130,13 +130,17 @@ impl Pooled {
                 }
                 Some(mut proxy_connection) => {
                     debug!("Proxy connection available, current pool size before take: {current_pool_size}");
-                    match Self::check_proxy_connection(&mut proxy_connection, config.clone(), rsa_crypto_holder.clone()).await {
-                        Ok(()) => {
-                            return Ok(proxy_connection)
-                        }
-                        Err(e) => {
-                            error!("Failed to check proxy connection: {e}");
-                            continue;
+                    if !proxy_connection.need_check() {
+                        return Ok(proxy_connection);
+                    } else {
+                        match Self::check_proxy_connection(&mut proxy_connection, config.clone(), rsa_crypto_holder.clone()).await {
+                            Ok(()) => {
+                                return Ok(proxy_connection)
+                            }
+                            Err(e) => {
+                                error!("Failed to check proxy connection: {e}");
+                                continue;
+                            }
                         }
                     }
                 }

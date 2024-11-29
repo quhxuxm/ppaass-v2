@@ -1,5 +1,8 @@
+use crate::bo::config::Config;
+use chrono::{DateTime, Utc};
 use std::io::Error;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 #[derive(Debug)]
@@ -8,15 +11,24 @@ where
     T: AsyncRead + AsyncWrite + Unpin,
 {
     inner: T,
+    config: Arc<Config>,
+    create_time: DateTime<Utc>,
 }
 impl<T> PooledProxyConnection<T>
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
-    pub fn new(inner: T) -> PooledProxyConnection<T> {
+    pub fn new(inner: T, config: Arc<Config>) -> PooledProxyConnection<T> {
         PooledProxyConnection {
             inner,
+            config,
+            create_time: Utc::now(),
         }
+    }
+    pub fn need_check(&self) -> bool {
+        let now = Utc::now();
+        let delta = now - self.create_time;
+        delta.num_seconds() > *self.config.proxy_connection_check_interval()
     }
 }
 impl<T> AsyncRead for PooledProxyConnection<T>

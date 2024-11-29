@@ -22,7 +22,7 @@ pub struct Config {
     #[access(get)]
     proxy_connection_pool_size: Option<usize>,
     #[access(get)]
-    proxy_connection_heartbeat_interval: u64,
+    proxy_connection_check_interval: i64,
     #[access(get)]
     proxy_connection_pool_fill_interval: u64,
 }
@@ -38,7 +38,7 @@ impl Default for Config {
             client_relay_buffer_size: 1024 * 1024 * 8,
             proxy_relay_buffer_size: 1024 * 1024 * 8,
             proxy_connection_pool_size: Some(32),
-            proxy_connection_heartbeat_interval: 60,
+            proxy_connection_check_interval: 10,
             proxy_connection_pool_fill_interval: 2,
         }
     }
