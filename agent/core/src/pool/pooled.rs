@@ -2,6 +2,7 @@ use crate::bo::config::Config;
 use crate::codec::ControlPacketCodec;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
+use crate::pool::parse_proxy_address;
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPing;
@@ -18,28 +19,24 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
-pub struct ProxyConnectionPool {
+pub struct Pooled {
     pool: Arc<Mutex<VecDeque<TcpStream>>>,
     config: Arc<Config>,
     proxy_addresses: Arc<Vec<SocketAddr>>,
     filling_connection: Arc<AtomicBool>,
+    pool_size: usize,
 }
-impl ProxyConnectionPool {
+impl Pooled {
     pub async fn new(
         config: Arc<Config>,
+        pool_size: usize,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
+        let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
         let pool = Arc::new(Mutex::new(VecDeque::with_capacity(
-            *config.proxy_connection_pool_size(),
+            pool_size,
         )));
         let pool_clone = pool.clone();
-        let proxy_addresses = Arc::new(
-            config
-                .proxy_addresses()
-                .iter()
-                .filter_map(|addr| SocketAddr::from_str(addr).ok())
-                .collect::<Vec<SocketAddr>>(),
-        );
         let filling_connection = Arc::new(AtomicBool::new(false));
         tokio::spawn(Self::check_health_and_close(
             pool_clone.clone(),
@@ -58,6 +55,7 @@ impl ProxyConnectionPool {
                         proxy_addresses.clone(),
                         config.clone(),
                         filling_connection.clone(),
+                        pool_size,
                     ).await {
                         error!("Failed to fill pool: {}", e);
                     };
@@ -70,6 +68,7 @@ impl ProxyConnectionPool {
             config,
             proxy_addresses,
             filling_connection,
+            pool_size,
         })
     }
     pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
@@ -78,6 +77,7 @@ impl ProxyConnectionPool {
             self.proxy_addresses.clone(),
             self.config.clone(),
             self.filling_connection.clone(),
+            self.pool_size,
         )
             .await
     }
@@ -86,9 +86,6 @@ impl ProxyConnectionPool {
         proxy_tcp_stream: TcpStream,
     ) -> Result<(), AgentError> {
         let mut pool = self.pool.lock().await;
-        if pool.len() >= *self.config.proxy_connection_pool_size() {
-            return Ok(());
-        }
         pool.push_back(proxy_tcp_stream);
         Ok(())
     }
@@ -112,6 +109,7 @@ impl ProxyConnectionPool {
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
+        pool_size: usize,
     ) -> Result<TcpStream, AgentError> {
         loop {
             let pool_clone = pool.clone();
@@ -128,6 +126,7 @@ impl ProxyConnectionPool {
                         proxy_addresses.clone(),
                         config.clone(),
                         filling_connection.clone(),
+                        pool_size,
                     )
                         .await?;
                     continue;
@@ -214,6 +213,7 @@ impl ProxyConnectionPool {
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
+        pool_size: usize,
     ) -> Result<(), AgentError> {
         debug!("Begin to fill proxy connection pool");
         if filling_connection.load(Ordering::Acquire) {
@@ -224,7 +224,7 @@ impl ProxyConnectionPool {
         let mut pool = pool.lock().await;
         let current_pool_size = pool.len();
         debug!("Current pool size: {current_pool_size}");
-        for _ in current_pool_size..*config.proxy_connection_pool_size() {
+        for _ in current_pool_size..pool_size {
             let proxy_addresses = proxy_addresses.clone();
             tokio::spawn(Self::create_proxy_tcp_stream(
                 config.clone(),
