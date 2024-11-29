@@ -25,7 +25,7 @@ impl UnPooled {
         })
     }
     pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
-        debug!("Create un pooled proxy connection");
+        debug!("Create un-pooled proxy connection");
         Ok(TcpStream::connect(self.proxy_addresses.as_slice()).await?)
     }
     pub async fn return_proxy_connection(
