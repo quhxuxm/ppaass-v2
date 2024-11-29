@@ -1,6 +1,6 @@
-use agent::bo::command::CommandArgs;
-use agent::bo::config::Config;
-use agent::server::AgentServer;
+use agent_core::bo::command::CommandArgs;
+use agent_core::bo::config::Config;
+use agent_core::server::AgentServer;
 use anyhow::Result;
 use clap::Parser;
 use std::fs::read_to_string;
@@ -12,7 +12,7 @@ use tracing::Level;
 use tracing::{error, info};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-const DEFAULT_CONFIG_FILE: &str = "config.toml";
+const DEFAULT_CONFIG_FILE: &str = "config.toml.toml";
 pub fn main() -> Result<()> {
     let command = CommandArgs::parse();
     let config_file_path = command
