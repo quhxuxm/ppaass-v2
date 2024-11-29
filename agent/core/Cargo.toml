@@ -42,3 +42,4 @@ bytecodec = { workspace = true }
 url = { workspace = true }
 mimalloc = { workspace = true }
 chrono = { workspace = true }
+pin-project = { workspace = true }

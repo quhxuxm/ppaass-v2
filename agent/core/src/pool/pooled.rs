@@ -2,7 +2,7 @@ use crate::bo::config::Config;
 use crate::codec::ControlPacketCodec;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
-use crate::pool::parse_proxy_address;
+use crate::pool::{parse_proxy_address, PooledProxyConnection};
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPing;
@@ -19,7 +19,7 @@ use tokio::time::sleep;
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
 pub struct Pooled {
-    pool: Arc<Mutex<VecDeque<TcpStream>>>,
+    pool: Arc<Mutex<VecDeque<PooledProxyConnection>>>,
     config: Arc<Config>,
     proxy_addresses: Arc<Vec<SocketAddr>>,
     filling_connection: Arc<AtomicBool>,
@@ -70,7 +70,7 @@ impl Pooled {
             pool_size,
         })
     }
-    pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
+    pub async fn take_proxy_connection(&self) -> Result<PooledProxyConnection, AgentError> {
         Self::concrete_take_proxy_connection(
             self.pool.clone(),
             self.proxy_addresses.clone(),
@@ -82,7 +82,7 @@ impl Pooled {
     }
     pub async fn return_proxy_connection(
         &self,
-        proxy_tcp_stream: TcpStream,
+        proxy_tcp_stream: PooledProxyConnection,
     ) -> Result<(), AgentError> {
         let mut pool = self.pool.lock().await;
         pool.push_back(proxy_tcp_stream);
@@ -91,12 +91,12 @@ impl Pooled {
     async fn create_proxy_tcp_stream(
         _config: Arc<Config>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
-        proxy_connection_tx: Sender<TcpStream>,
+        proxy_connection_tx: Sender<PooledProxyConnection>,
     ) -> Result<(), AgentError> {
         let proxy_tcp_stream = TcpStream::connect(proxy_addresses.as_slice()).await?;
         debug!("Create proxy connection: {proxy_tcp_stream:?}");
         proxy_connection_tx
-            .send(proxy_tcp_stream)
+            .send(PooledProxyConnection::new(proxy_tcp_stream))
             .await
             .map_err(|_| {
                 AgentError::ProxyConnectionPool("Fail to send proxy connection".to_string())
@@ -104,12 +104,12 @@ impl Pooled {
         Ok(())
     }
     async fn concrete_take_proxy_connection(
-        pool: Arc<Mutex<VecDeque<TcpStream>>>,
+        pool: Arc<Mutex<VecDeque<PooledProxyConnection>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
         pool_size: usize,
-    ) -> Result<TcpStream, AgentError> {
+    ) -> Result<PooledProxyConnection, AgentError> {
         loop {
             let pool_clone = pool.clone();
             let mut pool = pool.lock().await;
@@ -138,7 +138,7 @@ impl Pooled {
         }
     }
     async fn check_health_and_close(
-        pool: Arc<Mutex<VecDeque<TcpStream>>>,
+        pool: Arc<Mutex<VecDeque<PooledProxyConnection>>>,
         config: Arc<Config>,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<(), AgentError> {
@@ -148,7 +148,7 @@ impl Pooled {
             ))
                 .await;
             debug!("Begin proxy connection health check");
-            let (proxy_conn_tx, mut proxy_conn_rx) = channel::<TcpStream>(1024);
+            let (proxy_conn_tx, mut proxy_conn_rx) = channel::<PooledProxyConnection>(1024);
             let mut pool = pool.lock().await;
             for mut proxy_tcp_stream in pool.drain(..) {
                 debug!("Checking proxy connection from: {proxy_tcp_stream:?}");
@@ -208,7 +208,7 @@ impl Pooled {
         }
     }
     async fn fill_pool(
-        pool: Arc<Mutex<VecDeque<TcpStream>>>,
+        pool: Arc<Mutex<VecDeque<PooledProxyConnection>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
@@ -219,7 +219,7 @@ impl Pooled {
             return Ok(());
         }
         filling_connection.store(true, Ordering::Release);
-        let (proxy_connection_tx, mut proxy_connection_rx) = channel::<TcpStream>(1024);
+        let (proxy_connection_tx, mut proxy_connection_rx) = channel::<PooledProxyConnection>(1024);
         let mut pool = pool.lock().await;
         let current_pool_size = pool.len();
         debug!("Current pool size: {current_pool_size}");

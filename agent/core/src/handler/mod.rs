@@ -1,6 +1,7 @@
 use crate::bo::state::ServerState;
 use crate::codec::{ControlPacketCodec, DataPacketCodec};
 use crate::error::AgentError;
+use crate::pool::PooledProxyConnection;
 use bytes::{Bytes, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use ppaass_crypto::random_32_bytes;
@@ -14,7 +15,7 @@ use tracing::error;
 pub mod http;
 pub mod socks5;
 pub struct TunnelInitHandlerResponse {
-    proxy_tcp_stream: TcpStream,
+    proxy_tcp_stream: PooledProxyConnection,
     agent_encryption: Encryption,
     proxy_encryption: Encryption,
     destination_address: UnifiedAddress,
@@ -72,7 +73,7 @@ pub async fn tunnel_init(
 }
 pub struct RelayRequest {
     pub client_tcp_stream: TcpStream,
-    pub proxy_tcp_stream: TcpStream,
+    pub proxy_tcp_stream: PooledProxyConnection,
     pub init_data: Option<Bytes>,
     pub agent_encryption: Encryption,
     pub proxy_encryption: Encryption,

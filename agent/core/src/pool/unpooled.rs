@@ -2,7 +2,7 @@
 use crate::bo::config::Config;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
-use crate::pool::parse_proxy_address;
+use crate::pool::{parse_proxy_address, PooledProxyConnection};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpStream;
@@ -24,13 +24,13 @@ impl UnPooled {
             rsa_crypto_holder,
         })
     }
-    pub async fn take_proxy_connection(&self) -> Result<TcpStream, AgentError> {
+    pub async fn take_proxy_connection(&self) -> Result<PooledProxyConnection, AgentError> {
         debug!("Create un-pooled proxy connection");
-        Ok(TcpStream::connect(self.proxy_addresses.as_slice()).await?)
+        Ok(PooledProxyConnection::new(TcpStream::connect(self.proxy_addresses.as_slice()).await?))
     }
     pub async fn return_proxy_connection(
         &self,
-        _proxy_tcp_stream: TcpStream,
+        _proxy_tcp_stream: PooledProxyConnection,
     ) -> Result<(), AgentError> {
         Ok(())
     }
