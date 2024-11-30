@@ -23,17 +23,17 @@ pub struct Pooled {
     config: Arc<Config>,
     proxy_addresses: Arc<Vec<SocketAddr>>,
     filling_connection: Arc<AtomicBool>,
-    pool_size: usize,
+    initial_pool_size: usize,
     rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
 }
 impl Pooled {
     pub async fn new(
         config: Arc<Config>,
-        pool_size: usize,
+        initial_pool_size: usize,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
         let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
-        let pool = Arc::new(Mutex::new(VecDeque::with_capacity(pool_size)));
+        let pool = Arc::new(Mutex::new(VecDeque::with_capacity(initial_pool_size)));
         let filling_connection = Arc::new(AtomicBool::new(false));
         {
             let pool = pool.clone();
@@ -45,16 +45,16 @@ impl Pooled {
                 proxy_addresses.clone(),
                 config.clone(),
                 filling_connection.clone(),
-                pool_size,
+                initial_pool_size,
             )
-                .await;
+            .await;
         }
         Ok(Self {
             pool,
             config,
             proxy_addresses,
             filling_connection,
-            pool_size,
+            initial_pool_size: initial_pool_size,
             rsa_crypto_holder,
         })
     }
@@ -66,10 +66,10 @@ impl Pooled {
             self.proxy_addresses.clone(),
             self.config.clone(),
             self.filling_connection.clone(),
-            self.pool_size,
+            self.initial_pool_size,
             self.rsa_crypto_holder.clone(),
         )
-            .await
+        .await
     }
     pub async fn return_proxy_connection(
         &self,
@@ -119,7 +119,7 @@ impl Pooled {
                         filling_connection.clone(),
                         pool_size,
                     )
-                        .await;
+                    .await;
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
@@ -133,7 +133,7 @@ impl Pooled {
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                            .await
+                        .await
                         {
                             Ok(()) => return Ok(proxy_connection),
                             Err(e) => {
@@ -190,7 +190,7 @@ impl Pooled {
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
-        pool_size: usize,
+        initial_pool_size: usize,
     ) {
         if filling_connection.load(Ordering::Acquire) {
             debug!("Filling proxy connection pool, no need to start filling task.");
@@ -200,10 +200,10 @@ impl Pooled {
             debug!("Begin to fill proxy connection pool");
             filling_connection.store(true, Ordering::Release);
             let (proxy_connection_tx, mut proxy_connection_rx) =
-                channel::<PooledProxyConnection<TcpStream>>(1024);
+                channel::<PooledProxyConnection<TcpStream>>(initial_pool_size);
             let current_pool_size = pool.lock().await.len();
             debug!("Current pool size: {current_pool_size}");
-            for _ in current_pool_size..pool_size {
+            for _ in current_pool_size..initial_pool_size {
                 let proxy_addresses = proxy_addresses.clone();
                 tokio::spawn(Self::create_proxy_tcp_stream(
                     config.clone(),
