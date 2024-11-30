@@ -30,8 +30,8 @@ futures = "0.3.31"
 uuid = "1.11.0"
 httpcodec = "0.2.3"
 bytecodec = "0.4.15"
-url = "2.5.3"
 tokio-io-timeout = "1.2.0"
 mimalloc = "0.1.43"
-pin-project = "1.1.7"
+url = "2.5.4"
+
 
