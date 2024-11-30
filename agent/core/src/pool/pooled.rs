@@ -54,6 +54,7 @@ impl Pooled {
                     let interval = *interval;
                     tokio::spawn(async move {
                         loop {
+                            debug!("Starting connection pool auto filling loop.");
                             Self::fill_pool(
                                 pool.clone(),
                                 proxy_addresses.clone(),
