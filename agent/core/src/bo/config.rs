@@ -24,7 +24,7 @@ pub struct Config {
     #[access(get)]
     proxy_connection_check_interval: i64,
     #[access(get)]
-    proxy_connection_pool_fill_interval: u64,
+    proxy_connection_pool_fill_interval: Option<u64>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -39,7 +39,7 @@ impl Default for Config {
             proxy_relay_buffer_size: 1024 * 1024 * 8,
             proxy_connection_pool_size: Some(32),
             proxy_connection_check_interval: 10,
-            proxy_connection_pool_fill_interval: 2,
+            proxy_connection_pool_fill_interval: Some(120),
         }
     }
 }

@@ -37,10 +37,9 @@ impl Pooled {
         {
             let pool = pool.clone();
             let proxy_addresses = proxy_addresses.clone();
-            let config = config.clone();
             let filling_connection = filling_connection.clone();
-            tokio::spawn(async move {
-                loop {
+            match &config.proxy_connection_pool_fill_interval() {
+                None => {
                     Self::fill_pool(
                         pool.clone(),
                         proxy_addresses.clone(),
@@ -49,12 +48,25 @@ impl Pooled {
                         initial_pool_size,
                     )
                     .await;
-                    sleep(Duration::from_secs(
-                        *config.proxy_connection_pool_fill_interval(),
-                    ))
-                    .await;
                 }
-            });
+                Some(interval) => {
+                    let config = config.clone();
+                    let interval = *interval;
+                    tokio::spawn(async move {
+                        loop {
+                            Self::fill_pool(
+                                pool.clone(),
+                                proxy_addresses.clone(),
+                                config.clone(),
+                                filling_connection.clone(),
+                                initial_pool_size,
+                            )
+                            .await;
+                            sleep(Duration::from_secs(interval)).await;
+                        }
+                    });
+                }
+            }
         }
         Ok(Self {
             pool,
