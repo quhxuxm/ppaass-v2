@@ -43,14 +43,13 @@ pub async fn tunnel_init(
         server_state.server_event_tx(),
         ProxyServerEvent::TunnelInit(dst_address.clone()),
     )
-        .await;
+    .await;
     let tunnel_init_response = TunnelInitResponse {
         proxy_encryption: proxy_encryption.clone(),
     };
-    let proxy_control_packet = ProxyControlPacket::TunnelInit((auth_token.clone(), tunnel_init_response));
-    agent_control_framed
-        .send(proxy_control_packet)
-        .await?;
+    let proxy_control_packet =
+        ProxyControlPacket::TunnelInit((auth_token.clone(), tunnel_init_response));
+    agent_control_framed.send(proxy_control_packet).await?;
     let FramedParts {
         io: agent_tcp_stream,
         ..

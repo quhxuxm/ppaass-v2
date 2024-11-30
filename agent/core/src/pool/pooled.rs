@@ -33,9 +33,7 @@ impl Pooled {
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
         let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
-        let pool = Arc::new(Mutex::new(VecDeque::with_capacity(
-            pool_size,
-        )));
+        let pool = Arc::new(Mutex::new(VecDeque::with_capacity(pool_size)));
         let filling_connection = Arc::new(AtomicBool::new(false));
         {
             let pool = pool.clone();
@@ -48,7 +46,8 @@ impl Pooled {
                 config.clone(),
                 filling_connection.clone(),
                 pool_size,
-            ).await;
+            )
+            .await;
         }
         Ok(Self {
             pool,
@@ -59,7 +58,9 @@ impl Pooled {
             rsa_crypto_holder,
         })
     }
-    pub async fn take_proxy_connection(&self) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
+    pub async fn take_proxy_connection(
+        &self,
+    ) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         Self::concrete_take_proxy_connection(
             self.pool.clone(),
             self.proxy_addresses.clone(),
@@ -68,7 +69,7 @@ impl Pooled {
             self.pool_size,
             self.rsa_crypto_holder.clone(),
         )
-            .await
+        .await
     }
     pub async fn return_proxy_connection(
         &self,
@@ -118,7 +119,7 @@ impl Pooled {
                         filling_connection.clone(),
                         pool_size,
                     )
-                        .await;
+                    .await;
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
@@ -127,10 +128,14 @@ impl Pooled {
                     if !proxy_connection.need_check() {
                         return Ok(proxy_connection);
                     } else {
-                        match Self::check_proxy_connection(&mut proxy_connection, config.clone(), rsa_crypto_holder.clone()).await {
-                            Ok(()) => {
-                                return Ok(proxy_connection)
-                            }
+                        match Self::check_proxy_connection(
+                            &mut proxy_connection,
+                            config.clone(),
+                            rsa_crypto_holder.clone(),
+                        )
+                        .await
+                        {
+                            Ok(()) => return Ok(proxy_connection),
                             Err(e) => {
                                 error!("Failed to check proxy connection: {e}");
                                 continue;
@@ -151,10 +156,7 @@ impl Pooled {
         let rsa_crypto_holder = rsa_crypto_holder.clone();
         let mut proxy_ctl_framed = Framed::new(
             proxy_connection,
-            ControlPacketCodec::new(
-                config.auth_token().to_owned(),
-                rsa_crypto_holder.clone(),
-            ),
+            ControlPacketCodec::new(config.auth_token().to_owned(), rsa_crypto_holder.clone()),
         );
         proxy_ctl_framed
             .send(AgentControlPacket::Heartbeat(HeartbeatPing {
@@ -197,7 +199,8 @@ impl Pooled {
         tokio::spawn(async move {
             debug!("Begin to fill proxy connection pool");
             filling_connection.store(true, Ordering::Release);
-            let (proxy_connection_tx, mut proxy_connection_rx) = channel::<PooledProxyConnection<TcpStream>>(1024);
+            let (proxy_connection_tx, mut proxy_connection_rx) =
+                channel::<PooledProxyConnection<TcpStream>>(1024);
             let mut pool = pool.lock().await;
             let current_pool_size = pool.len();
             debug!("Current pool size: {current_pool_size}");
@@ -214,11 +217,14 @@ impl Pooled {
             while let Some(proxy_connection) = proxy_connection_rx.recv().await {
                 pool.push_back(proxy_connection);
                 debug!(
-                "Proxy connection creation add to pool, current pool size: {}",
+                    "Proxy connection creation add to pool, current pool size: {}",
+                    pool.len()
+                );
+            }
+            debug!(
+                "Proxy connections created, and fill into pool, pool size: {}",
                 pool.len()
             );
-            }
-            debug!("Proxy connections created, and fill into pool, pool size: {}", pool.len());
             filling_connection.store(false, Ordering::Release);
         });
     }

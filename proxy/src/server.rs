@@ -34,7 +34,11 @@ impl ProxyServer {
             server_event_rx,
         ))
     }
-    fn spawn_agent_task(agent_tcp_stream: TcpStream, agent_socket_address: SocketAddr, server_state: ServerState) {
+    fn spawn_agent_task(
+        agent_tcp_stream: TcpStream,
+        agent_socket_address: SocketAddr,
+        server_state: ServerState,
+    ) {
         tokio::spawn(async move {
             let mut control_framed = Framed::with_capacity(
                 agent_tcp_stream,
@@ -45,11 +49,17 @@ impl ProxyServer {
                 let agent_control_packet = control_framed.next().await;
                 match agent_control_packet {
                     None => {
-                        debug!(agent_socket_address={format!("{agent_socket_address}")},"Agent connection exhausted.");
+                        debug!(
+                            agent_socket_address = { format!("{agent_socket_address}") },
+                            "Agent connection exhausted."
+                        );
                         return;
                     }
                     Some(Err(e)) => {
-                        error!(agent_socket_address={format!("{agent_socket_address}")},"Fail to receive agent control packet: {:?}", e);
+                        error!(
+                            agent_socket_address = { format!("{agent_socket_address}") },
+                            "Fail to receive agent control packet: {:?}", e
+                        );
                         return;
                     }
                     Some(Ok(AgentControlPacket::TunnelInit(tunnel_init_request))) => {
@@ -58,11 +68,20 @@ impl ProxyServer {
                             proxy_encryption,
                             destination_transport,
                             agent_tcp_stream,
-                            destination_address
-                        } = match handler::tunnel_init(control_framed, tunnel_init_request, server_state.clone()).await {
+                            destination_address,
+                        } = match handler::tunnel_init(
+                            control_framed,
+                            tunnel_init_request,
+                            server_state.clone(),
+                        )
+                        .await
+                        {
                             Ok(tunnel_init_result) => tunnel_init_result,
                             Err(e) => {
-                                error!(agent_socket_address={format!("{agent_socket_address}")},"Fail to init tunnel: {e:?}");
+                                error!(
+                                    agent_socket_address = { format!("{agent_socket_address}") },
+                                    "Fail to init tunnel: {e:?}"
+                                );
                                 return;
                             }
                         };
@@ -76,18 +95,30 @@ impl ProxyServer {
                             },
                             server_state,
                         )
-                            .await
+                        .await
                         {
-                            error!(agent_socket_address={format!("{agent_socket_address}")},"Fail to start relay: {e:?}");
+                            error!(
+                                agent_socket_address = { format!("{agent_socket_address}") },
+                                "Fail to start relay: {e:?}"
+                            );
                         }
                         return;
                     }
                     Some(Ok(AgentControlPacket::Heartbeat(heartbeat_ping))) => {
-                        debug!(agent_socket_address={format!("{agent_socket_address}")},"Heartbeat ping received: {:?}", heartbeat_ping);
-                        if let Err(e) = control_framed.send(ProxyControlPacket::Heartbeat(HeartbeatPong {
-                            heartbeat_time: Utc::now(),
-                        })).await {
-                            error!(agent_socket_address={format!("{agent_socket_address}")},"Fail to send heartbeat pong back to agent: {e:?}");
+                        debug!(
+                            agent_socket_address = { format!("{agent_socket_address}") },
+                            "Heartbeat ping received: {:?}", heartbeat_ping
+                        );
+                        if let Err(e) = control_framed
+                            .send(ProxyControlPacket::Heartbeat(HeartbeatPong {
+                                heartbeat_time: Utc::now(),
+                            }))
+                            .await
+                        {
+                            error!(
+                                agent_socket_address = { format!("{agent_socket_address}") },
+                                "Fail to send heartbeat pong back to agent: {e:?}"
+                            );
                             return;
                         }
                     }
@@ -100,10 +131,14 @@ impl ProxyServer {
         let server_listener = TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             server_port,
-        )).await?;
+        ))
+        .await?;
         loop {
             let (agent_tcp_stream, agent_socket_addr) = server_listener.accept().await?;
-            debug!(agent_socket_address={format!("{agent_socket_addr}")},"Accept agent tcp connection.");
+            debug!(
+                agent_socket_address = { format!("{agent_socket_addr}") },
+                "Accept agent tcp connection."
+            );
             Self::spawn_agent_task(agent_tcp_stream, agent_socket_addr, server_state.clone());
         }
     }
@@ -126,7 +161,7 @@ impl ProxyServer {
             self.server_state.server_event_tx(),
             ProxyServerEvent::ServerStartup,
         )
-            .await;
+        .await;
         Ok(server_event_rx)
     }
 }

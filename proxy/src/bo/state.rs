@@ -14,4 +14,3 @@ pub struct ServerState {
     #[access(get)]
     server_event_tx: Arc<Sender<ProxyServerEvent>>,
 }
-

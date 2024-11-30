@@ -89,7 +89,7 @@ pub async fn relay(
         init_data,
         agent_encryption,
         proxy_encryption,
-        destination_address
+        destination_address,
     } = relay_request;
     let client_tcp_framed = Framed::with_capacity(
         client_tcp_stream,
@@ -128,13 +128,19 @@ pub async fn relay(
         };
         match proxy_packet_data {
             ProxyDataPacket::Tcp(proxy_data) => Some(Ok(BytesMut::from_iter(proxy_data))),
-            ProxyDataPacket::Udp { destination_address, .. } => {
+            ProxyDataPacket::Udp {
+                destination_address,
+                ..
+            } => {
                 error!("Invalid kind of proxy data, destination address: {destination_address}");
                 Some(Err(AgentError::InvalidProxyDataType.into()))
             }
         }
     });
-    let (client_to_proxy, proxy_to_client) = futures::join!(client_tcp_framed_rx.forward(proxy_data_framed_tx), proxy_data_framed_rx.forward(client_tcp_framed_tx));
+    let (client_to_proxy, proxy_to_client) = futures::join!(
+        client_tcp_framed_rx.forward(proxy_data_framed_tx),
+        proxy_data_framed_rx.forward(client_tcp_framed_tx)
+    );
     if let Err(e) = client_to_proxy {
         error!("Failed to send client data to proxy, destination: [{destination_address}]: {e:?}");
     }

@@ -24,7 +24,9 @@ impl AgentServer {
         server_state_builder
             .config(config.clone())
             .rsa_crypto_holder(rsa_crypto_holder.clone())
-            .proxy_connection_pool(Arc::new(ProxyConnectionPool::new(config, rsa_crypto_holder).await?));
+            .proxy_connection_pool(Arc::new(
+                ProxyConnectionPool::new(config, rsa_crypto_holder).await?,
+            ));
         Ok(Self {
             server_state: server_state_builder.build()?,
         })
@@ -58,7 +60,7 @@ impl AgentServer {
             Ipv4Addr::new(0, 0, 0, 0),
             *server_state.config().port(),
         )))
-            .await?;
+        .await?;
         loop {
             let (client_tcp_stream, client_socket_addr) = tcp_listener.accept().await?;
             let server_state = server_state.clone();
@@ -68,7 +70,7 @@ impl AgentServer {
                     client_socket_addr,
                     server_state,
                 )
-                    .await
+                .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }

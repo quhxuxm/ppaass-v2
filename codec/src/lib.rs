@@ -210,15 +210,15 @@ impl Encoder<AgentDataPacket> for AgentDataPacketEncoder {
     type Error = CodecError;
     fn encode(&mut self, item: AgentDataPacket, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let encrypted_data = match &self.encryption {
-            Encryption::Plain => {
-                bincode::serialize(&item)?
-            }
+            Encryption::Plain => bincode::serialize(&item)?,
             Encryption::Aes(aes_token) => {
                 let raw = bincode::serialize(&item)?;
                 encrypt_with_aes(aes_token, &raw)?
             }
         };
-        Ok(self.length_delimited_codec.encode(encrypted_data.into(), dst)?)
+        Ok(self
+            .length_delimited_codec
+            .encode(encrypted_data.into(), dst)?)
     }
 }
 pub struct AgentDataPacketDecoder {
@@ -240,17 +240,13 @@ impl Decoder for AgentDataPacketDecoder {
         let encrypted_data = self.length_delimited_codec.decode(src)?;
         match encrypted_data {
             None => Ok(None),
-            Some(encrypted_data) => {
-                match &self.encryption {
-                    Encryption::Plain => {
-                        Ok(Some(bincode::deserialize(&encrypted_data)?))
-                    }
-                    Encryption::Aes(aes_token) => {
-                        let raw = decrypt_with_aes(aes_token, &encrypted_data)?;
-                        Ok(Some(bincode::deserialize(&raw)?))
-                    }
+            Some(encrypted_data) => match &self.encryption {
+                Encryption::Plain => Ok(Some(bincode::deserialize(&encrypted_data)?)),
+                Encryption::Aes(aes_token) => {
+                    let raw = decrypt_with_aes(aes_token, &encrypted_data)?;
+                    Ok(Some(bincode::deserialize(&raw)?))
                 }
-            }
+            },
         }
     }
 }
@@ -271,15 +267,15 @@ impl Encoder<ProxyDataPacket> for ProxyDataPacketEncoder {
     type Error = CodecError;
     fn encode(&mut self, item: ProxyDataPacket, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let encrypted_data = match &self.encryption {
-            Encryption::Plain => {
-                bincode::serialize(&item)?
-            }
+            Encryption::Plain => bincode::serialize(&item)?,
             Encryption::Aes(aes_token) => {
                 let raw = bincode::serialize(&item)?;
                 encrypt_with_aes(aes_token, &raw)?
             }
         };
-        Ok(self.length_delimited_codec.encode(encrypted_data.into(), dst)?)
+        Ok(self
+            .length_delimited_codec
+            .encode(encrypted_data.into(), dst)?)
     }
 }
 pub struct ProxyDataPacketDecoder {
@@ -301,17 +297,13 @@ impl Decoder for ProxyDataPacketDecoder {
         let encrypted_data = self.length_delimited_codec.decode(src)?;
         match encrypted_data {
             None => Ok(None),
-            Some(encrypted_data) => {
-                match &self.encryption {
-                    Encryption::Plain => {
-                        Ok(Some(bincode::deserialize(&encrypted_data)?))
-                    }
-                    Encryption::Aes(aes_token) => {
-                        let raw = decrypt_with_aes(aes_token, &encrypted_data)?;
-                        Ok(Some(bincode::deserialize(&raw)?))
-                    }
+            Some(encrypted_data) => match &self.encryption {
+                Encryption::Plain => Ok(Some(bincode::deserialize(&encrypted_data)?)),
+                Encryption::Aes(aes_token) => {
+                    let raw = decrypt_with_aes(aes_token, &encrypted_data)?;
+                    Ok(Some(bincode::deserialize(&raw)?))
                 }
-            }
+            },
         }
     }
 }

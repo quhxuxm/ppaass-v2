@@ -8,9 +8,9 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpStream;
+mod connection;
 mod pooled;
 mod unpooled;
-mod connection;
 fn parse_proxy_address(config: &Config) -> Result<Vec<SocketAddr>, AgentError> {
     let proxy_addresses = config
         .proxy_addresses()
@@ -24,18 +24,22 @@ pub enum ProxyConnectionPool {
     Pooled(Pooled),
 }
 impl ProxyConnectionPool {
-    pub async fn new(config: Arc<Config>,
-                     rsa_crypto_holder: Arc<AgentRsaCryptoHolder>) -> Result<Self, AgentError> {
+    pub async fn new(
+        config: Arc<Config>,
+        rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
+    ) -> Result<Self, AgentError> {
         match *config.proxy_connection_pool_size() {
-            None => {
-                Ok(Self::UnPooled(UnPooled::new(config, rsa_crypto_holder).await?))
-            }
-            Some(pool_size) => {
-                Ok(Self::Pooled(Pooled::new(config, pool_size, rsa_crypto_holder).await?))
-            }
+            None => Ok(Self::UnPooled(
+                UnPooled::new(config, rsa_crypto_holder).await?,
+            )),
+            Some(pool_size) => Ok(Self::Pooled(
+                Pooled::new(config, pool_size, rsa_crypto_holder).await?,
+            )),
         }
     }
-    pub async fn take_proxy_connection(&self) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
+    pub async fn take_proxy_connection(
+        &self,
+    ) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         match self {
             ProxyConnectionPool::UnPooled(un_pooled) => un_pooled.take_proxy_connection().await,
             ProxyConnectionPool::Pooled(pooled) => pooled.take_proxy_connection().await,
@@ -46,8 +50,12 @@ impl ProxyConnectionPool {
         proxy_tcp_stream: PooledProxyConnection<TcpStream>,
     ) -> Result<(), AgentError> {
         match self {
-            ProxyConnectionPool::UnPooled(un_pooled) => un_pooled.return_proxy_connection(proxy_tcp_stream).await,
-            ProxyConnectionPool::Pooled(pooled) => pooled.return_proxy_connection(proxy_tcp_stream).await,
+            ProxyConnectionPool::UnPooled(un_pooled) => {
+                un_pooled.return_proxy_connection(proxy_tcp_stream).await
+            }
+            ProxyConnectionPool::Pooled(pooled) => {
+                pooled.return_proxy_connection(proxy_tcp_stream).await
+            }
         }
     }
 }

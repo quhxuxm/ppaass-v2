@@ -14,7 +14,6 @@ pub fn generate_uuid() -> String {
 pub enum AgentControlPacket {
     TunnelInit(TunnelInitRequest),
     Heartbeat(HeartbeatPing),
-
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum ProxyControlPacket {

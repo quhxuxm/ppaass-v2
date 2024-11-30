@@ -6,7 +6,7 @@ pub enum Encryption {
     Plain,
     Aes(Vec<u8>),
 }
-#[derive(Deserialize, Serialize, Debug, Clone, )]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum TunnelType {
     Tcp,
     Udp,
@@ -22,4 +22,3 @@ pub struct TunnelInitRequest {
 pub struct TunnelInitResponse {
     pub proxy_encryption: Encryption,
 }
-

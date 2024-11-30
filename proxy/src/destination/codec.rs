@@ -18,12 +18,8 @@ impl Decoder for DestinationDataTcpCodec {
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let destination_data = self.bytes_codec.decode(src)?;
         match destination_data {
-            None => {
-                Ok(None)
-            }
-            Some(data) => {
-                Ok(Some(DestinationDataPacket::Tcp(data.to_vec())))
-            }
+            None => Ok(None),
+            Some(data) => Ok(Some(DestinationDataPacket::Tcp(data.to_vec()))),
         }
     }
 }

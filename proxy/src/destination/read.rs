@@ -24,12 +24,10 @@ impl Stream for DestinationTransportRead {
     type Item = Result<DestinationDataPacket, ProxyError>;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.get_mut() {
-            DestinationTransportRead::Tcp(inner_tcp_stream) => {
-                inner_tcp_stream.poll_next_unpin(cx)
-            }
+            DestinationTransportRead::Tcp(inner_tcp_stream) => inner_tcp_stream.poll_next_unpin(cx),
             DestinationTransportRead::Udp {
                 destination_address,
-                destination_udp_socket
+                destination_udp_socket,
             } => {
                 let mut read_buf = [0u8; UDP_READ_BUFFER_SIZE];
                 let mut read_buf = ReadBuf::new(&mut read_buf);

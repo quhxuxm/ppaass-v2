@@ -26,7 +26,7 @@ pub async fn start_relay(
         agent_encryption,
         proxy_encryption,
         destination_transport,
-        destination_address
+        destination_address,
     } = relay_start_request;
     let agent_data_framed = Framed::with_capacity(
         agent_tcp_stream,
@@ -40,43 +40,56 @@ pub async fn start_relay(
         let agent_data_packet = match agent_data_packet {
             Ok(agent_data_packet) => agent_data_packet,
             Err(e) => {
-                error!(destination_address={format!("{destination_address_clone}")}, "Failed to read agent data: {}", e);
+                error!(
+                    destination_address = { format!("{destination_address_clone}") },
+                    "Failed to read agent data: {}", e
+                );
                 return Some(Err(e));
             }
         };
         match agent_data_packet {
-            AgentDataPacket::Tcp(data) => {
-                Some(Ok(BytesMut::from_iter(data)))
-            }
-            AgentDataPacket::Udp { payload, .. } => {
-                Some(Ok(BytesMut::from_iter(payload)))
-            }
+            AgentDataPacket::Tcp(data) => Some(Ok(BytesMut::from_iter(data))),
+            AgentDataPacket::Udp { payload, .. } => Some(Ok(BytesMut::from_iter(payload))),
         }
     });
     let destination_address_clone = destination_address.clone();
-    let destination_transport_rx =
-        destination_transport_rx.map_while(move |destination_item| {
-            let destination_data = match destination_item {
-                Ok(destination_data) => destination_data,
-                Err(e) => {
-                    error!(destination_address={format!("{destination_address_clone}")}, "Failed to read destination data: {e:?}");
-                    return Some(Err(e));
-                }
-            };
-            match destination_data {
-                DestinationDataPacket::Tcp(data) => Some(Ok(ProxyDataPacket::Tcp(data))),
-                DestinationDataPacket::Udp { data, destination_address } => Some(Ok(ProxyDataPacket::Udp {
-                    payload: data,
-                    destination_address,
-                }))
+    let destination_transport_rx = destination_transport_rx.map_while(move |destination_item| {
+        let destination_data = match destination_item {
+            Ok(destination_data) => destination_data,
+            Err(e) => {
+                error!(
+                    destination_address = { format!("{destination_address_clone}") },
+                    "Failed to read destination data: {e:?}"
+                );
+                return Some(Err(e));
             }
-        });
-    let (agent_to_destination, destination_to_agent) = futures::join!(agent_data_framed_rx.forward(destination_transport_tx),destination_transport_rx.forward(agent_data_framed_tx));
+        };
+        match destination_data {
+            DestinationDataPacket::Tcp(data) => Some(Ok(ProxyDataPacket::Tcp(data))),
+            DestinationDataPacket::Udp {
+                data,
+                destination_address,
+            } => Some(Ok(ProxyDataPacket::Udp {
+                payload: data,
+                destination_address,
+            })),
+        }
+    });
+    let (agent_to_destination, destination_to_agent) = futures::join!(
+        agent_data_framed_rx.forward(destination_transport_tx),
+        destination_transport_rx.forward(agent_data_framed_tx)
+    );
     if let Err(e) = agent_to_destination {
-        error!(destination_address={format!("{destination_address}")}, "Failed to send agent data to destination: {e:?}");
+        error!(
+            destination_address = { format!("{destination_address}") },
+            "Failed to send agent data to destination: {e:?}"
+        );
     }
     if let Err(e) = destination_to_agent {
-        error!(destination_address={format!("{destination_address}")}, "Failed to send destination data to agent: {e:?}");
+        error!(
+            destination_address = { format!("{destination_address}") },
+            "Failed to send destination data to agent: {e:?}"
+        );
     }
     Ok(())
 }

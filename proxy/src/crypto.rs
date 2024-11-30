@@ -53,7 +53,10 @@ impl ProxyRsaCryptoHolder {
     }
 }
 impl RsaCryptoHolder for ProxyRsaCryptoHolder {
-    fn get_rsa_crypto(&self, auth_token: impl AsRef<str>) -> Result<Option<Arc<RsaCrypto>>, CodecError> {
+    fn get_rsa_crypto(
+        &self,
+        auth_token: impl AsRef<str>,
+    ) -> Result<Option<Arc<RsaCrypto>>, CodecError> {
         match self.cache.get(auth_token.as_ref()) {
             None => Ok(None),
             Some(val) => Ok(Some(val.clone())),

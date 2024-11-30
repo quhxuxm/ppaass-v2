@@ -18,9 +18,7 @@ impl Sink<BytesMut> for DestinationTransportWrite {
     type Error = ProxyError;
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.get_mut() {
-            DestinationTransportWrite::Tcp(inner_sink) => {
-                inner_sink.poll_ready_unpin(cx)
-            }
+            DestinationTransportWrite::Tcp(inner_sink) => inner_sink.poll_ready_unpin(cx),
             DestinationTransportWrite::Udp(udp_socket) => {
                 udp_socket.poll_send_ready(cx).map_err(ProxyError::Io)
             }
@@ -28,25 +26,19 @@ impl Sink<BytesMut> for DestinationTransportWrite {
     }
     fn start_send(self: Pin<&mut Self>, item: BytesMut) -> Result<(), Self::Error> {
         match self.get_mut() {
-            DestinationTransportWrite::Tcp(inner_sink) => {
-                inner_sink.start_send_unpin(item)
-            }
+            DestinationTransportWrite::Tcp(inner_sink) => inner_sink.start_send_unpin(item),
             DestinationTransportWrite::Udp(_) => Ok(()),
         }
     }
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.get_mut() {
-            DestinationTransportWrite::Tcp(inner_sink) => {
-                inner_sink.poll_flush_unpin(cx)
-            }
+            DestinationTransportWrite::Tcp(inner_sink) => inner_sink.poll_flush_unpin(cx),
             DestinationTransportWrite::Udp(_) => Poll::Ready(Ok(())),
         }
     }
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.get_mut() {
-            DestinationTransportWrite::Tcp(inner_sink) => {
-                inner_sink.poll_close_unpin(cx)
-            }
+            DestinationTransportWrite::Tcp(inner_sink) => inner_sink.poll_close_unpin(cx),
             DestinationTransportWrite::Udp(_) => Poll::Ready(Ok(())),
         }
     }

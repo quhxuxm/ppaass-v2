@@ -6,8 +6,8 @@ use bytecodec::io::IoDecodeExt;
 use bytecodec::{EncodeExt, ErrorKind};
 use bytes::{Buf, Bytes};
 use httpcodec::{
-    BodyDecoder, BodyEncoder, HttpVersion, ReasonPhrase, RequestDecoder, RequestEncoder,
-    Response, ResponseEncoder, StatusCode,
+    BodyDecoder, BodyEncoder, HttpVersion, ReasonPhrase, RequestDecoder, RequestEncoder, Response,
+    ResponseEncoder, StatusCode,
 };
 use ppaass_domain::address::UnifiedAddress;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -24,7 +24,8 @@ pub async fn handle_http_client_tcp_stream(
     mut client_tcp_stream: TcpStream,
     server_state: ServerState,
 ) -> Result<(), AgentError> {
-    let mut request_decoder: RequestDecoder<BodyDecoder<RemainingBytesDecoder>> = Default::default();
+    let mut request_decoder: RequestDecoder<BodyDecoder<RemainingBytesDecoder>> =
+        Default::default();
     let mut request_decode_buf = Vec::new();
     let http_request = loop {
         let mut request_stream_read_buf = [0u8; HTTP_REQUEST_BUF_LEN];
@@ -37,17 +38,15 @@ pub async fn handle_http_client_tcp_stream(
             let request_decode_buf_read = request_decode_buf.reader();
             let request = match request_decoder.decode_exact(request_decode_buf_read) {
                 Ok(request) => request,
-                Err(e) => {
-                    match e.kind() {
-                        ErrorKind::IncompleteDecoding => {
-                            continue;
-                        }
-                        _ => {
-                            error!("Fail to decode http request: {}", e);
-                            return Err(e.into());
-                        }
+                Err(e) => match e.kind() {
+                    ErrorKind::IncompleteDecoding => {
+                        continue;
                     }
-                }
+                    _ => {
+                        error!("Fail to decode http request: {}", e);
+                        return Err(e.into());
+                    }
+                },
             };
             break request;
         }
@@ -123,6 +122,6 @@ pub async fn handle_http_client_tcp_stream(
         },
         server_state,
     )
-        .await?;
+    .await?;
     Ok(())
 }

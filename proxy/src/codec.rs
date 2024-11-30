@@ -1,7 +1,10 @@
 use crate::crypto::ProxyRsaCryptoHolder;
 use crate::error::ProxyError;
 use bytes::BytesMut;
-use ppaass_codec::{AgentControlPacketDecoder, AgentDataPacketDecoder, ProxyControlPacketEncoder, ProxyDataPacketEncoder};
+use ppaass_codec::{
+    AgentControlPacketDecoder, AgentDataPacketDecoder, ProxyControlPacketEncoder,
+    ProxyDataPacketEncoder,
+};
 use ppaass_domain::tunnel::Encryption;
 use ppaass_domain::{AgentControlPacket, AgentDataPacket, ProxyControlPacket, ProxyDataPacket};
 use std::sync::Arc;

@@ -1,6 +1,6 @@
+mod codec;
 pub mod read;
 pub mod write;
-mod codec;
 use crate::bo::state::ServerState;
 use crate::destination::codec::DestinationDataTcpCodec;
 use crate::destination::read::DestinationTransportRead;
@@ -73,7 +73,7 @@ impl DestinationTransport {
             }
             DestinationTransport::Udp {
                 destination_address,
-                destination_udp_socket
+                destination_udp_socket,
             } => {
                 let udp_socket = Arc::new(destination_udp_socket);
                 (

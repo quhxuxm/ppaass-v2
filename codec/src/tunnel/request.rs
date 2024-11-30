@@ -31,14 +31,20 @@ where
     type Error = CodecError;
     fn encode(&mut self, item: TunnelInitRequest, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let TunnelInitRequest {
-            agent_encryption, auth_token, dst_address, tunnel_type,
+            agent_encryption,
+            auth_token,
+            dst_address,
+            tunnel_type,
         } = item;
-        let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")))?;
+        let rsa_crypto =
+            self.rsa_crypto_fetcher
+                .get_rsa_crypto(&auth_token)?
+                .ok_or(CryptoError::Rsa(format!(
+                    "Rsa crypto not found: {auth_token}"
+                )))?;
         let agent_encryption = match agent_encryption {
             Encryption::Plain => agent_encryption,
-            Encryption::Aes(aes_token) => {
-                Encryption::Aes(rsa_crypto.encrypt(&aes_token)?)
-            }
+            Encryption::Aes(aes_token) => Encryption::Aes(rsa_crypto.encrypt(&aes_token)?),
         };
         let tunnel_init_request = TunnelInitRequest {
             agent_encryption,
@@ -47,7 +53,9 @@ where
             tunnel_type,
         };
         let tunnel_init_request_bytes = bincode::serialize(&tunnel_init_request)?;
-        Ok(self.length_delimited_codec.encode(tunnel_init_request_bytes.into(), dst)?)
+        Ok(self
+            .length_delimited_codec
+            .encode(tunnel_init_request_bytes.into(), dst)?)
     }
 }
 /// Tunnel init request decoder will be used by proxy side
@@ -80,13 +88,18 @@ where
         match tunnel_init_request {
             None => Ok(None),
             Some(tunnel_init_request_bytes) => {
-                let TunnelInitRequest { agent_encryption, auth_token, dst_address, tunnel_type, } = bincode::deserialize::<TunnelInitRequest>(&tunnel_init_request_bytes)?;
-                let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&auth_token)?.ok_or(CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")))?;
+                let TunnelInitRequest {
+                    agent_encryption,
+                    auth_token,
+                    dst_address,
+                    tunnel_type,
+                } = bincode::deserialize::<TunnelInitRequest>(&tunnel_init_request_bytes)?;
+                let rsa_crypto = self.rsa_crypto_fetcher.get_rsa_crypto(&auth_token)?.ok_or(
+                    CryptoError::Rsa(format!("Rsa crypto not found: {auth_token}")),
+                )?;
                 let agent_encryption = match agent_encryption {
                     Encryption::Plain => agent_encryption,
-                    Encryption::Aes(aes_token) => {
-                        Encryption::Aes(rsa_crypto.decrypt(&aes_token)?)
-                    }
+                    Encryption::Aes(aes_token) => Encryption::Aes(rsa_crypto.decrypt(&aes_token)?),
                 };
                 Ok(Some(TunnelInitRequest {
                     agent_encryption,
