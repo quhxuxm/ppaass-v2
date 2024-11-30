@@ -30,6 +30,10 @@ where
         let delta = now - self.create_time;
         delta.num_seconds() > *self.config.proxy_connection_check_interval()
     }
+
+    pub fn create_time(&self) -> &DateTime<Utc> {
+        &self.create_time
+    }
 }
 impl<T> AsyncRead for PooledProxyConnection<T>
 where

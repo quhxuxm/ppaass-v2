@@ -7,7 +7,6 @@ use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPing;
 use ppaass_domain::{AgentControlPacket, ProxyControlPacket};
-use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -19,7 +18,7 @@ use tokio::time::sleep;
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
 pub struct Pooled {
-    pool: Arc<Mutex<VecDeque<PooledProxyConnection<TcpStream>>>>,
+    pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
     config: Arc<Config>,
     proxy_addresses: Arc<Vec<SocketAddr>>,
     filling_connection: Arc<AtomicBool>,
@@ -33,7 +32,7 @@ impl Pooled {
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
         let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
-        let pool = Arc::new(Mutex::new(VecDeque::with_capacity(initial_pool_size)));
+        let pool = Arc::new(Mutex::new(Vec::with_capacity(initial_pool_size)));
         let filling_connection = Arc::new(AtomicBool::new(false));
         {
             let pool = pool.clone();
@@ -84,7 +83,7 @@ impl Pooled {
         proxy_tcp_stream: PooledProxyConnection<TcpStream>,
     ) -> Result<(), AgentError> {
         let mut pool = self.pool.lock().await;
-        pool.push_back(proxy_tcp_stream);
+        pool.push(proxy_tcp_stream);
         Ok(())
     }
     async fn create_proxy_tcp_stream(
@@ -103,7 +102,7 @@ impl Pooled {
         Ok(())
     }
     async fn concrete_take_proxy_connection(
-        pool: Arc<Mutex<VecDeque<PooledProxyConnection<TcpStream>>>>,
+        pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
@@ -115,7 +114,7 @@ impl Pooled {
             let mut pool = pool.lock().await;
             let current_pool_size = pool.len();
             debug!("Taking proxy connection, current pool size: {current_pool_size}");
-            let proxy_connection = pool.pop_front();
+            let proxy_connection = pool.pop();
             drop(pool);
             match proxy_connection {
                 None => {
@@ -194,7 +193,7 @@ impl Pooled {
         }
     }
     async fn fill_pool(
-        pool: Arc<Mutex<VecDeque<PooledProxyConnection<TcpStream>>>>,
+        pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         filling_connection: Arc<AtomicBool>,
@@ -223,12 +222,15 @@ impl Pooled {
             debug!("Waiting for proxy connection creation");
             while let Some(proxy_connection) = proxy_connection_rx.recv().await {
                 let mut pool = pool.lock().await;
-                pool.push_back(proxy_connection);
+                pool.push(proxy_connection);
                 debug!(
                     "Proxy connection creation add to pool, current pool size: {}",
                     pool.len()
                 );
             }
+            pool.lock()
+                .await
+                .sort_by(|v1, v2| v1.create_time().cmp(&v2.create_time()));
             filling_connection.store(false, Ordering::Release);
         });
     }
