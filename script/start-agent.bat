@@ -1,0 +1,1 @@
+ppaass-agent -c resources/config.toml

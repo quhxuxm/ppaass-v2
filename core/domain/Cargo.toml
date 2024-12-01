@@ -1,0 +1,12 @@
+[package]
+name = "domain"
+version = "0.1.0"
+edition = "2021"
+[lib]
+path = "src/lib.rs"
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "display"] }
+uuid = { workspace = true, features = ["v4"] }
+chrono = { workspace = true, features = ["serde"] }
