@@ -43,13 +43,14 @@ sudo chmod 777 ppaass-v2
 cd /ppaass-v2/sourcecode/ppaass-v2
 sudo git pull
 
+cd core
 cargo build --release --package proxy
 
 # ps -ef | grep gradle | grep -v grep | awk '{print $2}' | xargs kill -9
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/* /ppaass-v2/build/resources
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/rsa/* /ppaass-v2/build/resources/proxy/rsa
-sudo cp /ppaass-v2/sourcecode/ppaass-v2/target/release/ppaass-proxy /ppaass-v2/build/ppaass-v2-proxy
-sudo cp /ppaass-v2/sourcecode/ppaass-v2/proxy/start.sh /ppaass-v2/build/
+sudo cp /ppaass-v2/sourcecode/ppaass-v2/core/target/release/ppaass-proxy /ppaass-v2/build/ppaass-v2-proxy
+sudo cp /ppaass-v2/sourcecode/ppaass-v2/script/start-proxy.sh /ppaass-v2/build/
 
 sudo chmod 777 /ppaass-v2/build
 cd /ppaass-v2/build
@@ -57,10 +58,10 @@ ls -l
 
 sudo chmod 777 ppaass-v2-proxy
 sudo chmod 777 *.sh
-sudo dos2unix ./start.sh
+sudo dos2unix ./start-proxy.sh
 
 #Start with the low configuration by default
-sudo nohup ./start.sh >run.log 2>&1 &
+sudo nohup ./start-proxy.sh >run.log 2>&1 &
 
 ulimit -n 409600
 
