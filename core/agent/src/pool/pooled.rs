@@ -212,13 +212,13 @@ impl Pooled {
         filling_connection: Arc<AtomicBool>,
         initial_pool_size: usize,
     ) {
-        if filling_connection.load(Ordering::Acquire) {
+        if filling_connection.load(Ordering::Relaxed) {
             debug!("Filling proxy connection pool, no need to start filling task.");
             return;
         }
         tokio::spawn(async move {
             debug!("Begin to fill proxy connection pool");
-            filling_connection.store(true, Ordering::Release);
+            filling_connection.store(true, Ordering::Relaxed);
             let (proxy_connection_tx, mut proxy_connection_rx) =
                 channel::<PooledProxyConnection<TcpStream>>(initial_pool_size);
             let current_pool_size = pool.lock().await.len();
@@ -244,7 +244,7 @@ impl Pooled {
             pool.lock()
                 .await
                 .sort_by(|v1, v2| v1.create_time().cmp(&v2.create_time()));
-            filling_connection.store(false, Ordering::Release);
+            filling_connection.store(false, Ordering::Relaxed);
         });
     }
 }
