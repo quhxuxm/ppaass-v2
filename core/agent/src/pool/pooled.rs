@@ -213,10 +213,16 @@ impl Pooled {
         initial_pool_size: usize,
     ) {
         if filling_connection.load(Ordering::Relaxed) {
-            debug!("Filling proxy connection pool, no need to start filling task.");
+            debug!("Filling proxy connection pool, no need to start filling task(outside task).");
             return;
         }
         tokio::spawn(async move {
+            if filling_connection.load(Ordering::Relaxed) {
+                debug!(
+                    "Filling proxy connection pool, no need to start filling task(inside task)."
+                );
+                return;
+            }
             debug!("Begin to fill proxy connection pool");
             filling_connection.store(true, Ordering::Relaxed);
             let (proxy_connection_tx, mut proxy_connection_rx) =
