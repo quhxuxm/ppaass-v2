@@ -143,7 +143,7 @@ impl ProxyServer {
             *server_state.config().agent_connection_tcp_keepalive_time(),
         )).with_interval(Duration::from_secs(*server_state.config().agent_connection_tcp_keepalive_interval()));
         #[cfg(target_os = "linux")]
-        let keepalive = keepalive.with_retries(server_state.config().agent_connection_tcp_keepalive_retry());
+        let keepalive = keepalive.with_retries(*server_state.config().agent_connection_tcp_keepalive_retry());
         server_socket.set_tcp_keepalive(&keepalive)?;
         server_socket.set_linger(None)?;
         server_socket.set_read_timeout(Some(Duration::from_secs(*server_state.config().agent_connection_read_timeout())))?;
