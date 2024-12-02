@@ -19,6 +19,14 @@ pub struct Config {
     rsa_dir: PathBuf,
     #[access(get(ty(&str)))]
     max_log_level: String,
+    #[access(get)]
+    agent_connection_tcp_keep_alive: u64,
+    #[access(get)]
+    agent_connection_write_timeout: u64,
+    #[access(get)]
+    agent_connection_read_timeout: u64,
+    #[access(get)]
+    server_socket_backlog: u16,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -31,6 +39,10 @@ impl Default for Config {
             agent_buffer_size: 1024 * 1024 * 8,
             max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/rsa"),
+            agent_connection_write_timeout: 20,
+            agent_connection_read_timeout: 20,
+            agent_connection_tcp_keep_alive: 120,
+            server_socket_backlog: 1024,
         }
     }
 }

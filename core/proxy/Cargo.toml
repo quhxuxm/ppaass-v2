@@ -39,3 +39,4 @@ tokio-io-timeout = { workspace = true }
 mimalloc = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 chrono = { workspace = true }
+socket2 = { workspace = true }

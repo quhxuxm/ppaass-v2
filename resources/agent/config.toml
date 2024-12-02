@@ -10,3 +10,7 @@ proxy_relay_buffer_size = 8388608
 proxy_connection_pool_size = 32
 proxy_connection_check_interval = 120
 proxy_connection_pool_fill_interval = 20
+proxy_connect_timeout = 20
+proxy_connection_read_timeout = 20
+proxy_connection_write_timeout = 20
+proxy_connection_tcp_keep_alive = 120

@@ -25,6 +25,14 @@ pub struct Config {
     proxy_connection_check_interval: i64,
     #[access(get)]
     proxy_connection_pool_fill_interval: Option<u64>,
+    #[access(get)]
+    proxy_connect_timeout: u64,
+    #[access(get)]
+    proxy_connection_read_timeout: u64,
+    #[access(get)]
+    proxy_connection_write_timeout: u64,
+    #[access(get)]
+    proxy_connection_tcp_keep_alive: u64,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -40,6 +48,10 @@ impl Default for Config {
             proxy_connection_pool_size: Some(32),
             proxy_connection_check_interval: 10,
             proxy_connection_pool_fill_interval: Some(120),
+            proxy_connect_timeout: 10,
+            proxy_connection_read_timeout: 20,
+            proxy_connection_write_timeout: 20,
+            proxy_connection_tcp_keep_alive: 120,
         }
     }
 }

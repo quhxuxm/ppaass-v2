@@ -10,8 +10,11 @@ use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPong;
 use ppaass_domain::{AgentControlPacket, ProxyControlPacket};
+use socket2::{Domain, Protocol, Socket, TcpKeepalive, Type};
+use std::ffi::c_int;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio_util::codec::Framed;
@@ -74,7 +77,7 @@ impl ProxyServer {
                             tunnel_init_request,
                             server_state.clone(),
                         )
-                        .await
+                            .await
                         {
                             Ok(tunnel_init_result) => tunnel_init_result,
                             Err(e) => {
@@ -95,7 +98,7 @@ impl ProxyServer {
                             },
                             server_state,
                         )
-                        .await
+                            .await
                         {
                             error!(
                                 agent_socket_address = { format!("{agent_socket_address}") },
@@ -128,11 +131,22 @@ impl ProxyServer {
     }
     async fn concrete_start_server(server_state: ServerState) -> Result<(), ProxyError> {
         let server_port = *server_state.config().port();
-        let server_listener = TcpListener::bind(SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-            server_port,
-        ))
-        .await?;
+        let server_socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), server_port);
+        let server_socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+        server_socket.bind(&server_socket_addr.into())?;
+        server_socket.listen(c_int::from(*server_state.config().server_socket_backlog()))?;
+        server_socket.set_nodelay(true)?;
+        server_socket.set_nonblocking(true)?;
+        server_socket.set_reuse_address(true)?;
+        server_socket.set_keepalive(true)?;
+        let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
+            *server_state.config().agent_connection_tcp_keep_alive(),
+        ));
+        server_socket.set_tcp_keepalive(&keepalive)?;
+        server_socket.set_linger(None)?;
+        server_socket.set_read_timeout(Some(Duration::from_secs(*server_state.config().agent_connection_read_timeout())))?;
+        server_socket.set_write_timeout(Some(Duration::from_secs(*server_state.config().agent_connection_write_timeout())))?;
+        let server_listener = TcpListener::from_std(server_socket.into())?;
         loop {
             let (agent_tcp_stream, agent_socket_addr) = server_listener.accept().await?;
             debug!(
@@ -161,7 +175,7 @@ impl ProxyServer {
             self.server_state.server_event_tx(),
             ProxyServerEvent::ServerStartup,
         )
-        .await;
+            .await;
         Ok(server_event_rx)
     }
 }
