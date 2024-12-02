@@ -12,6 +12,10 @@ pub struct Config {
     #[access(get)]
     dst_write_timeout: u64,
     #[access(get)]
+    dst_connect_timeout: u64,
+    #[access(get)]
+    dst_tcp_keepalive: u64,
+    #[access(get)]
     dst_buffer_size: usize,
     #[access(get)]
     agent_buffer_size: usize,
@@ -27,6 +31,7 @@ pub struct Config {
     agent_connection_read_timeout: u64,
     #[access(get)]
     server_socket_backlog: u16,
+
 }
 impl Default for Config {
     fn default() -> Self {
@@ -43,6 +48,8 @@ impl Default for Config {
             agent_connection_read_timeout: 20,
             agent_connection_tcp_keep_alive: 120,
             server_socket_backlog: 1024,
+            dst_connect_timeout: 20,
+            dst_tcp_keepalive: 120,
         }
     }
 }

@@ -10,11 +10,10 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 use tokio::net::{TcpStream, UdpSocket};
-use tokio_io_timeout::TimeoutStream;
 use tokio_util::codec::Framed;
 const UDP_READ_BUFFER_SIZE: usize = 65536;
 pub enum DestinationTransportRead {
-    Tcp(SplitStream<Framed<TimeoutStream<TcpStream>, DestinationDataTcpCodec>>),
+    Tcp(SplitStream<Framed<TcpStream, DestinationDataTcpCodec>>),
     Udp {
         destination_address: UnifiedAddress,
         destination_udp_socket: Arc<UdpSocket>,

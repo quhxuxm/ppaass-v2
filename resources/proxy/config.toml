@@ -10,3 +10,5 @@ agent_connection_write_timeout = 20
 agent_connection_read_timeout = 20
 agent_connection_tcp_keep_alive = 120
 server_socket_backlog = 1024
+dst_connect_timeout = 20
+dst_tcp_keepalive = 120

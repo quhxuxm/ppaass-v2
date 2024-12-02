@@ -8,10 +8,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::net::{TcpStream, UdpSocket};
-use tokio_io_timeout::TimeoutStream;
 use tokio_util::codec::Framed;
 pub enum DestinationTransportWrite {
-    Tcp(SplitSink<Framed<TimeoutStream<TcpStream>, DestinationDataTcpCodec>, BytesMut>),
+    Tcp(SplitSink<Framed<TcpStream, DestinationDataTcpCodec>, BytesMut>),
     Udp(Arc<UdpSocket>),
 }
 impl Sink<BytesMut> for DestinationTransportWrite {

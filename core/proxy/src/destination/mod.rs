@@ -9,11 +9,12 @@ use crate::error::ProxyError;
 use bytes::BytesMut;
 use futures_util::StreamExt;
 use ppaass_domain::address::UnifiedAddress;
+use rand::random;
+use socket2::{Domain, Protocol, Socket, TcpKeepalive, Type};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::{TcpStream, UdpSocket};
-use tokio_io_timeout::TimeoutStream;
 use tokio_util::codec::Framed;
 pub enum DestinationDataPacket {
     Tcp(Vec<u8>),
@@ -23,7 +24,7 @@ pub enum DestinationDataPacket {
     },
 }
 pub enum DestinationTransport {
-    Tcp(Framed<TimeoutStream<TcpStream>, DestinationDataTcpCodec>),
+    Tcp(Framed<TcpStream, DestinationDataTcpCodec>),
     Udp {
         destination_address: UnifiedAddress,
         destination_udp_socket: UdpSocket,
@@ -35,14 +36,28 @@ impl DestinationTransport {
         server_state: ServerState,
     ) -> Result<Self, ProxyError> {
         let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
-        let dst_tcp_stream = TcpStream::connect(dst_addresses.as_slice()).await?;
-        let mut dst_tcp_stream = TimeoutStream::new(dst_tcp_stream);
-        dst_tcp_stream.set_read_timeout(Some(Duration::from_secs(
+        let dest_socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+        let random_dst_addr_index = random::<usize>() % dst_addresses.len();
+        dest_socket.connect_timeout(
+            &dst_addresses[random_dst_addr_index].into(),
+            Duration::from_secs(*server_state.config().dst_connect_timeout()),
+        )?;
+        dest_socket.set_nonblocking(true)?;
+        dest_socket.set_reuse_address(true)?;
+        dest_socket.set_keepalive(true)?;
+        let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
+            *server_state.config().dst_tcp_keepalive(),
+        ));
+        dest_socket.set_tcp_keepalive(&keepalive)?;
+        dest_socket.set_nonblocking(true)?;
+        dest_socket.set_nodelay(true)?;
+        dest_socket.set_read_timeout(Some(Duration::from_secs(
             *server_state.config().dst_read_timeout(),
-        )));
-        dst_tcp_stream.set_write_timeout(Some(Duration::from_secs(
+        )))?;
+        dest_socket.set_write_timeout(Some(Duration::from_secs(
             *server_state.config().dst_write_timeout(),
-        )));
+        )))?;
+        let dst_tcp_stream = TcpStream::connect(dst_addresses.as_slice()).await?;
         Ok(DestinationTransport::Tcp(Framed::with_capacity(
             dst_tcp_stream,
             DestinationDataTcpCodec::new(),
