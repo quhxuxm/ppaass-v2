@@ -14,7 +14,11 @@ pub struct Config {
     #[access(get)]
     dst_connect_timeout: u64,
     #[access(get)]
-    dst_tcp_keepalive: u64,
+    dst_tcp_keepalive_interval: u64,
+    #[access(get)]
+    dst_tcp_keepalive_time: u64,
+    #[access(get)]
+    dst_tcp_keepalive_retry: u32,
     #[access(get)]
     dst_buffer_size: usize,
     #[access(get)]
@@ -24,7 +28,11 @@ pub struct Config {
     #[access(get(ty(&str)))]
     max_log_level: String,
     #[access(get)]
-    agent_connection_tcp_keep_alive: u64,
+    agent_connection_tcp_keepalive_interval: u64,
+    #[access(get)]
+    agent_connection_tcp_keepalive_time: u64,
+    #[access(get)]
+    agent_connection_tcp_keepalive_retry: u32,
     #[access(get)]
     agent_connection_write_timeout: u64,
     #[access(get)]
@@ -46,10 +54,14 @@ impl Default for Config {
             rsa_dir: PathBuf::from("/resources/rsa"),
             agent_connection_write_timeout: 20,
             agent_connection_read_timeout: 20,
-            agent_connection_tcp_keep_alive: 120,
+            agent_connection_tcp_keepalive_interval: 120,
+            agent_connection_tcp_keepalive_time: 5,
+            agent_connection_tcp_keepalive_retry: 3,
             server_socket_backlog: 1024,
             dst_connect_timeout: 20,
-            dst_tcp_keepalive: 120,
+            dst_tcp_keepalive_interval: 120,
+            dst_tcp_keepalive_time: 5,
+            dst_tcp_keepalive_retry: 3,
         }
     }
 }

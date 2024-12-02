@@ -38,5 +38,5 @@ tokio-stream = { workspace = true }
 mimalloc = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 chrono = { workspace = true }
-socket2 = { workspace = true }
+socket2 = { workspace = true, features = ["all"] }
 rand = { workspace = true }

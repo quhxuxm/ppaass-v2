@@ -115,9 +115,11 @@ impl Pooled {
         proxy_socket.set_nonblocking(true)?;
         proxy_socket.set_reuse_address(true)?;
         proxy_socket.set_keepalive(true)?;
-        let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
-            *config.proxy_connection_tcp_keep_alive(),
-        ));
+        let keepalive = TcpKeepalive::new()
+            .with_interval(Duration::from_secs(*config.proxy_connection_tcp_keepalive_interval()))
+            .with_time(Duration::from_secs(*config.proxy_connection_tcp_keepalive_time()));
+        #[cfg(target_os = "linux")]
+        keepalive.with_retries(*config.proxy_connection_tcp_keepalive_retry());
         proxy_socket.set_tcp_keepalive(&keepalive)?;
         proxy_socket.set_nonblocking(true)?;
         proxy_socket.set_nodelay(true)?;

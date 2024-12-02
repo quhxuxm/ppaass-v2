@@ -32,7 +32,11 @@ pub struct Config {
     #[access(get)]
     proxy_connection_write_timeout: u64,
     #[access(get)]
-    proxy_connection_tcp_keep_alive: u64,
+    proxy_connection_tcp_keepalive_interval: u64,
+    #[access(get)]
+    proxy_connection_tcp_keepalive_time: u64,
+    #[access(get)]
+    proxy_connection_tcp_keepalive_retry: u32,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -51,7 +55,9 @@ impl Default for Config {
             proxy_connect_timeout: 10,
             proxy_connection_read_timeout: 20,
             proxy_connection_write_timeout: 20,
-            proxy_connection_tcp_keep_alive: 120,
+            proxy_connection_tcp_keepalive_interval: 120,
+            proxy_connection_tcp_keepalive_time: 5,
+            proxy_connection_tcp_keepalive_retry: 3,
         }
     }
 }
