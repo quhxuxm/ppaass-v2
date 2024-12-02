@@ -16,6 +16,18 @@ pub struct Config {
     #[access(get(ty(&str)))]
     max_log_level: String,
     #[access(get)]
+    server_socket_backlog: u16,
+    #[access(get)]
+    client_connection_tcp_keepalive_interval: u64,
+    #[access(get)]
+    client_connection_tcp_keepalive_time: u64,
+    #[access(get)]
+    client_connection_tcp_keepalive_retry: u32,
+    #[access(get)]
+    client_connection_read_timeout: u64,
+    #[access(get)]
+    client_connection_write_timeout: u64,
+    #[access(get)]
     client_relay_buffer_size: usize,
     #[access(get)]
     proxy_relay_buffer_size: usize,
@@ -47,6 +59,10 @@ impl Default for Config {
             worker_threads: 256,
             max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/agent/rsa"),
+            client_connection_tcp_keepalive_interval: 120,
+            client_connection_tcp_keepalive_time: 5,
+            client_connection_tcp_keepalive_retry: 3,
+            server_socket_backlog: 1024,
             client_relay_buffer_size: 1024 * 1024 * 8,
             proxy_relay_buffer_size: 1024 * 1024 * 8,
             proxy_connection_pool_size: Some(32),
@@ -58,6 +74,8 @@ impl Default for Config {
             proxy_connection_tcp_keepalive_interval: 120,
             proxy_connection_tcp_keepalive_time: 5,
             proxy_connection_tcp_keepalive_retry: 3,
+            client_connection_read_timeout: 20,
+            client_connection_write_timeout: 20,
         }
     }
 }

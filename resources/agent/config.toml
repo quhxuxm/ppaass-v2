@@ -1,4 +1,4 @@
-port = 10090
+port = 10080
 auth_token = "user1"
 worker_threads = 256
 rsa_dir = "resources/agent/rsa"
@@ -16,3 +16,9 @@ proxy_connection_write_timeout = 20
 proxy_connection_tcp_keepalive_interval = 120
 proxy_connection_tcp_keepalive_time = 5
 proxy_connection_tcp_keepalive_retry = 3
+client_connection_tcp_keepalive_interval = 120
+client_connection_tcp_keepalive_time = 5
+client_connection_tcp_keepalive_retry = 3
+server_socket_backlog = 1024
+client_connection_read_timeout = 20
+client_connection_write_timeout = 20
