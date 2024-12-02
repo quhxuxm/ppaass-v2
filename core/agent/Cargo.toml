@@ -43,4 +43,4 @@ url = { workspace = true }
 mimalloc = { workspace = true }
 chrono = { workspace = true }
 socket2 = { workspace = true, features = ["all"] }
-rand = "0.8.5"
+rand = { workspace = true }
