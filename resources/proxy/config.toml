@@ -1,7 +1,7 @@
 port = 80
 worker_threads = 256
-dst_read_timeout = 120000
-dst_write_timeout = 120000
+dst_read_timeout = 20
+dst_write_timeout = 20
 rsa_dir = "resources/proxy/rsa"
 max_log_level = "INFO"
 dst_buffer_size = 8388608
