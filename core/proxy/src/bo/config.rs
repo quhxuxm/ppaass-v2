@@ -28,6 +28,8 @@ pub struct Config {
     #[access(get(ty(&str)))]
     max_log_level: String,
     #[access(get)]
+    agent_connection_tcp_keepalive: bool,
+    #[access(get)]
     agent_connection_tcp_keepalive_interval: u64,
     #[access(get)]
     agent_connection_tcp_keepalive_time: u64,
@@ -54,6 +56,7 @@ impl Default for Config {
             rsa_dir: PathBuf::from("/resources/rsa"),
             agent_connection_write_timeout: 20,
             agent_connection_read_timeout: 20,
+            agent_connection_tcp_keepalive: false,
             agent_connection_tcp_keepalive_interval: 75,
             agent_connection_tcp_keepalive_time: 7200,
             agent_connection_tcp_keepalive_retry: 9,

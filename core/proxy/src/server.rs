@@ -138,13 +138,15 @@ impl ProxyServer {
         server_socket.set_nodelay(true)?;
         server_socket.set_nonblocking(true)?;
         server_socket.set_reuse_address(true)?;
-        server_socket.set_keepalive(true)?;
-        let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
-            *server_state.config().agent_connection_tcp_keepalive_time(),
-        )).with_interval(Duration::from_secs(*server_state.config().agent_connection_tcp_keepalive_interval()));
-        #[cfg(target_os = "linux")]
-        let keepalive = keepalive.with_retries(*server_state.config().agent_connection_tcp_keepalive_retry());
-        server_socket.set_tcp_keepalive(&keepalive)?;
+        if *server_state.config().agent_connection_tcp_keepalive() {
+            server_socket.set_keepalive(true)?;
+            let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
+                *server_state.config().agent_connection_tcp_keepalive_time(),
+            )).with_interval(Duration::from_secs(*server_state.config().agent_connection_tcp_keepalive_interval()));
+            #[cfg(target_os = "linux")]
+            let keepalive = keepalive.with_retries(*server_state.config().agent_connection_tcp_keepalive_retry());
+            server_socket.set_tcp_keepalive(&keepalive)?;
+        }
         server_socket.set_linger(None)?;
         server_socket.set_read_timeout(Some(Duration::from_secs(*server_state.config().agent_connection_read_timeout())))?;
         server_socket.set_write_timeout(Some(Duration::from_secs(*server_state.config().agent_connection_write_timeout())))?;
