@@ -22,3 +22,4 @@ client_connection_tcp_keepalive_retry = 9
 server_socket_backlog = 1024
 client_connection_read_timeout = 20
 client_connection_write_timeout = 20
+client_connection_tcp_keepalive = false

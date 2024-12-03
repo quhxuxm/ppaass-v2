@@ -69,23 +69,25 @@ impl AgentServer {
         server_socket.set_nodelay(true)?;
         server_socket.set_nonblocking(true)?;
         server_socket.set_reuse_address(true)?;
-        server_socket.set_keepalive(true)?;
-        let keepalive = TcpKeepalive::new()
-            .with_time(Duration::from_secs(
-                *server_state.config().client_connection_tcp_keepalive_time(),
-            ))
-            .with_interval(Duration::from_secs(
+        if *server_state.config().client_connection_tcp_keepalive() {
+            server_socket.set_keepalive(true)?;
+            let keepalive = TcpKeepalive::new()
+                .with_time(Duration::from_secs(
+                    *server_state.config().client_connection_tcp_keepalive_time(),
+                ))
+                .with_interval(Duration::from_secs(
+                    *server_state
+                        .config()
+                        .client_connection_tcp_keepalive_interval(),
+                ));
+            #[cfg(target_os = "linux")]
+            let keepalive = keepalive.with_retries(
                 *server_state
                     .config()
-                    .client_connection_tcp_keepalive_interval(),
-            ));
-        #[cfg(target_os = "linux")]
-        let keepalive = keepalive.with_retries(
-            *server_state
-                .config()
-                .client_connection_tcp_keepalive_retry(),
-        );
-        server_socket.set_tcp_keepalive(&keepalive)?;
+                    .client_connection_tcp_keepalive_retry(),
+            );
+            server_socket.set_tcp_keepalive(&keepalive)?;
+        }
         server_socket.set_linger(None)?;
         server_socket.set_read_timeout(Some(Duration::from_secs(
             *server_state.config().client_connection_read_timeout(),
@@ -103,7 +105,7 @@ impl AgentServer {
                     client_socket_addr,
                     server_state,
                 )
-                .await
+                    .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }
