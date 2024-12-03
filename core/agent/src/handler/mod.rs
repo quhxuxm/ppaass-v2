@@ -41,7 +41,9 @@ pub async fn tunnel_init(
             agent_encryption: agent_encryption.clone(),
             auth_token: server_state.config().auth_token().to_owned(),
             dst_address: destination_address.clone(),
-            tunnel_type: TunnelType::Tcp,
+            tunnel_type: TunnelType::Tcp {
+                keepalive: true
+            },
         }))
         .await?;
     let TunnelInitResponse { proxy_encryption } = {

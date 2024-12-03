@@ -34,6 +34,7 @@ impl DestinationTransport {
     pub async fn new_tcp(
         dst_addresses: &UnifiedAddress,
         server_state: ServerState,
+        keepalive: bool,
     ) -> Result<Self, ProxyError> {
         let dst_addresses: Vec<SocketAddr> = dst_addresses.try_into()?;
         let dest_socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
@@ -44,13 +45,15 @@ impl DestinationTransport {
         )?;
         dest_socket.set_nonblocking(true)?;
         dest_socket.set_reuse_address(true)?;
-        dest_socket.set_keepalive(true)?;
-        let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
-            *server_state.config().dst_tcp_keepalive_time(),
-        )).with_interval(Duration::from_secs(*server_state.config().dst_tcp_keepalive_interval()));
-        #[cfg(target_os = "linux")]
-        let keepalive = keepalive.with_retries(*server_state.config().dst_tcp_keepalive_retry());
-        dest_socket.set_tcp_keepalive(&keepalive)?;
+        if keepalive {
+            dest_socket.set_keepalive(true)?;
+            let keepalive = TcpKeepalive::new().with_time(Duration::from_secs(
+                *server_state.config().dst_tcp_keepalive_time(),
+            )).with_interval(Duration::from_secs(*server_state.config().dst_tcp_keepalive_interval()));
+            #[cfg(target_os = "linux")]
+            let keepalive = keepalive.with_retries(*server_state.config().dst_tcp_keepalive_retry());
+            dest_socket.set_tcp_keepalive(&keepalive)?;
+        }
         dest_socket.set_nonblocking(true)?;
         dest_socket.set_nodelay(true)?;
         dest_socket.set_read_timeout(Some(Duration::from_secs(

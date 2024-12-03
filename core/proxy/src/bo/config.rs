@@ -54,14 +54,14 @@ impl Default for Config {
             rsa_dir: PathBuf::from("/resources/rsa"),
             agent_connection_write_timeout: 20,
             agent_connection_read_timeout: 20,
-            agent_connection_tcp_keepalive_interval: 120,
-            agent_connection_tcp_keepalive_time: 5,
-            agent_connection_tcp_keepalive_retry: 3,
+            agent_connection_tcp_keepalive_interval: 75,
+            agent_connection_tcp_keepalive_time: 7200,
+            agent_connection_tcp_keepalive_retry: 9,
             server_socket_backlog: 1024,
             dst_connect_timeout: 20,
-            dst_tcp_keepalive_interval: 120,
-            dst_tcp_keepalive_time: 5,
-            dst_tcp_keepalive_retry: 3,
+            dst_tcp_keepalive_interval: 75,
+            dst_tcp_keepalive_time: 7200,
+            dst_tcp_keepalive_retry: 9,
         }
     }
 }

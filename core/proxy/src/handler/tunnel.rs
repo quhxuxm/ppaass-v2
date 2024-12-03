@@ -31,8 +31,10 @@ pub async fn tunnel_init(
         tunnel_type,
     } = tunnel_init_request;
     let destination_transport = match &tunnel_type {
-        TunnelType::Tcp => {
-            DestinationTransport::new_tcp(&dst_address, server_state.clone()).await?
+        TunnelType::Tcp {
+            keepalive
+        } => {
+            DestinationTransport::new_tcp(&dst_address, server_state.clone(), *keepalive).await?
         }
         TunnelType::Udp => {
             DestinationTransport::new_udp(&dst_address, server_state.clone()).await?
@@ -43,7 +45,7 @@ pub async fn tunnel_init(
         server_state.server_event_tx(),
         ProxyServerEvent::TunnelInit(dst_address.clone()),
     )
-    .await;
+        .await;
     let tunnel_init_response = TunnelInitResponse {
         proxy_encryption: proxy_encryption.clone(),
     };
