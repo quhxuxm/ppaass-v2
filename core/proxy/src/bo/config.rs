@@ -41,7 +41,6 @@ pub struct Config {
     agent_connection_read_timeout: u64,
     #[access(get)]
     server_socket_backlog: u16,
-
 }
 impl Default for Config {
     fn default() -> Self {

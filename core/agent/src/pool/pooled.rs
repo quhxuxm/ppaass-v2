@@ -7,8 +7,7 @@ use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPing;
 use ppaass_domain::{AgentControlPacket, ProxyControlPacket};
-use rand::random;
-use socket2::{Domain, Protocol, Socket, TcpKeepalive, Type};
+use socket2::{SockRef, TcpKeepalive};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -16,7 +15,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::Mutex;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
 pub struct Pooled {
@@ -49,7 +48,7 @@ impl Pooled {
                         filling_connection.clone(),
                         initial_pool_size,
                     )
-                        .await;
+                    .await;
                 }
                 Some(interval) => {
                     let config = config.clone();
@@ -64,7 +63,7 @@ impl Pooled {
                                 filling_connection.clone(),
                                 initial_pool_size,
                             )
-                                .await;
+                            .await;
                             sleep(Duration::from_secs(interval)).await;
                         }
                     });
@@ -91,7 +90,7 @@ impl Pooled {
             self.initial_pool_size,
             self.rsa_crypto_holder.clone(),
         )
-            .await
+        .await
     }
     pub async fn return_proxy_connection(
         &self,
@@ -106,22 +105,38 @@ impl Pooled {
         proxy_addresses: Arc<Vec<SocketAddr>>,
         proxy_connection_tx: Sender<PooledProxyConnection<TcpStream>>,
     ) -> Result<(), AgentError> {
-        let proxy_socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-        let random_proxy_addr_index = random::<usize>() % proxy_addresses.len();
-        proxy_socket.connect_timeout(
-            &proxy_addresses[random_proxy_addr_index].into(),
+        let proxy_tcp_stream = match timeout(
             Duration::from_secs(*config.proxy_connect_timeout()),
-        )?;
-        proxy_socket.set_nonblocking(true)?;
+            TcpStream::connect(proxy_addresses.as_slice()),
+        )
+        .await
+        {
+            Ok(Ok(proxy_tcp_stream)) => proxy_tcp_stream,
+            Ok(Err(e)) => {
+                error!("Fail connect to proxy: {e:?}");
+                return Err(e.into());
+            }
+            Err(e) => {
+                error!(
+                    "Fail connect to proxy because of timeout: {}",
+                    *config.proxy_connect_timeout()
+                );
+                return Err(e.into());
+            }
+        };
+        let proxy_socket = SockRef::from(&proxy_tcp_stream);
         proxy_socket.set_reuse_address(true)?;
         proxy_socket.set_keepalive(true)?;
         let keepalive = TcpKeepalive::new()
-            .with_interval(Duration::from_secs(*config.proxy_connection_tcp_keepalive_interval()))
-            .with_time(Duration::from_secs(*config.proxy_connection_tcp_keepalive_time()));
+            .with_interval(Duration::from_secs(
+                *config.proxy_connection_tcp_keepalive_interval(),
+            ))
+            .with_time(Duration::from_secs(
+                *config.proxy_connection_tcp_keepalive_time(),
+            ));
         #[cfg(target_os = "linux")]
         keepalive.with_retries(*config.proxy_connection_tcp_keepalive_retry());
         proxy_socket.set_tcp_keepalive(&keepalive)?;
-        proxy_socket.set_nonblocking(true)?;
         proxy_socket.set_nodelay(true)?;
         proxy_socket.set_read_timeout(Some(Duration::from_secs(
             *config.proxy_connection_read_timeout(),
@@ -129,7 +144,6 @@ impl Pooled {
         proxy_socket.set_write_timeout(Some(Duration::from_secs(
             *config.proxy_connection_write_timeout(),
         )))?;
-        let proxy_tcp_stream = TcpStream::from_std(proxy_socket.into())?;
         debug!("Create proxy connection: {proxy_tcp_stream:?}");
         proxy_connection_tx
             .send(PooledProxyConnection::new(proxy_tcp_stream, config))
@@ -164,7 +178,7 @@ impl Pooled {
                         filling_connection.clone(),
                         pool_size,
                     )
-                        .await;
+                    .await;
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
@@ -178,7 +192,7 @@ impl Pooled {
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                            .await
+                        .await
                         {
                             Ok(()) => return Ok(proxy_connection),
                             Err(e) => {

@@ -38,6 +38,8 @@ pub enum AgentError {
     AddrParse(#[from] AddrParseError),
     #[error("Unknown error happen: {0}")]
     Unknown(String),
+    #[error(transparent)]
+    ConnectProxyTimeout(#[from] tokio::time::error::Elapsed),
 }
 impl From<AgentError> for std::io::Error {
     fn from(value: AgentError) -> Self {

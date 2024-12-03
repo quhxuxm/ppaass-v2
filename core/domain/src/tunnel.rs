@@ -8,9 +8,7 @@ pub enum Encryption {
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum TunnelType {
-    Tcp {
-        keepalive: bool
-    },
+    Tcp { keepalive: bool },
     Udp,
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]

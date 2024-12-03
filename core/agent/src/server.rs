@@ -7,8 +7,7 @@ use crate::handler::http::handle_http_client_tcp_stream;
 use crate::handler::socks5::handle_socks5_client_tcp_stream;
 use crate::pool::ProxyConnectionPool;
 use crate::publish_server_event;
-use socket2::{Domain, Protocol, Socket, TcpKeepalive, Type};
-use std::ffi::c_int;
+use socket2::{SockRef, TcpKeepalive};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -63,11 +62,9 @@ impl AgentServer {
             IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             *server_state.config().port(),
         );
-        let server_socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-        server_socket.bind(&server_socket_addr.into())?;
-        server_socket.listen(c_int::from(*server_state.config().server_socket_backlog()))?;
+        let server_listener = TcpListener::bind(server_socket_addr).await?;
+        let server_socket = SockRef::from(&server_listener);
         server_socket.set_nodelay(true)?;
-        server_socket.set_nonblocking(true)?;
         server_socket.set_reuse_address(true)?;
         if *server_state.config().client_connection_tcp_keepalive() {
             server_socket.set_keepalive(true)?;
@@ -95,7 +92,6 @@ impl AgentServer {
         server_socket.set_write_timeout(Some(Duration::from_secs(
             *server_state.config().client_connection_write_timeout(),
         )))?;
-        let server_listener = TcpListener::from_std(server_socket.into())?;
         loop {
             let (client_tcp_stream, client_socket_addr) = server_listener.accept().await?;
             let server_state = server_state.clone();
@@ -105,7 +101,7 @@ impl AgentServer {
                     client_socket_addr,
                     server_state,
                 )
-                    .await
+                .await
                 {
                     error!("Fail to handle client tcp stream [{client_socket_addr:?}]: {e:?}")
                 }

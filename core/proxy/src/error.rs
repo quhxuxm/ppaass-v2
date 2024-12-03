@@ -19,6 +19,8 @@ pub enum ProxyError {
     ServerStateBuilder(#[from] ServerStateBuilderError),
     #[error(transparent)]
     FromHex(#[from] CodecError),
+    #[error(transparent)]
+    DstConnectTimeout(#[from] tokio::time::error::Elapsed),
 }
 impl From<ProxyError> for std::io::Error {
     fn from(value: ProxyError) -> Self {
