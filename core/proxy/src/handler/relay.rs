@@ -75,21 +75,7 @@ pub async fn start_relay(
             })),
         }
     });
-    let (agent_to_destination, destination_to_agent) = futures::join!(
-        agent_data_framed_rx.forward(destination_transport_tx),
-        destination_transport_rx.forward(agent_data_framed_tx)
-    );
-    if let Err(e) = agent_to_destination {
-        error!(
-            destination_address = { format!("{destination_address}") },
-            "Failed to send agent data to destination: {e:?}"
-        );
-    }
-    if let Err(e) = destination_to_agent {
-        error!(
-            destination_address = { format!("{destination_address}") },
-            "Failed to send destination data to agent: {e:?}"
-        );
-    }
+    tokio::spawn(agent_data_framed_rx.forward(destination_transport_tx));
+    tokio::spawn(destination_transport_rx.forward(agent_data_framed_tx));
     Ok(())
 }

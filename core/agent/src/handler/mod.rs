@@ -108,44 +108,42 @@ pub async fn relay(
             .send(BytesMut::from(init_data.as_ref()))
             .await?;
     }
-    let client_tcp_framed_rx = client_tcp_framed_rx.map_while(move |client_item| {
-        let client_data = match client_item {
-            Ok(client_data) => client_data.freeze(),
-            Err(e) => {
-                error!("Fail to read client data: {e:?}");
-                return Some(Err(AgentError::Io(e)));
+    let client_tcp_framed_rx = {
+        let destination_address = destination_address.clone();
+        client_tcp_framed_rx.map_while(move |client_item| {
+            let client_data = match client_item {
+                Ok(client_data) => client_data.freeze(),
+                Err(e) => {
+                    error!(destination_address={format!("{}", &destination_address)},"Fail to read client data: {e:?}");
+                    return Some(Err(AgentError::Io(e)));
+                }
+            };
+            Some(Ok(AgentDataPacket::Tcp(client_data.to_vec())))
+        })
+    };
+    let proxy_data_framed_rx = {
+        let destination_address = destination_address.clone();
+        proxy_data_framed_rx.map_while(move |proxy_data_packet| {
+            let proxy_packet_data = match proxy_data_packet {
+                Ok(proxy_packet_data) => proxy_packet_data,
+                Err(e) => {
+                    error!(destination_address={format!("{}", &destination_address)},"Failed to read proxy data: {}", e);
+                    return Some(Err(e.into()));
+                }
+            };
+            match proxy_packet_data {
+                ProxyDataPacket::Tcp(proxy_data) => Some(Ok(BytesMut::from_iter(proxy_data))),
+                ProxyDataPacket::Udp {
+                    destination_address,
+                    ..
+                } => {
+                    error!(destination_address={format!("{}", &destination_address)},"Invalid kind of proxy data, destination address.");
+                    Some(Err(AgentError::InvalidProxyDataType.into()))
+                }
             }
-        };
-        Some(Ok(AgentDataPacket::Tcp(client_data.to_vec())))
-    });
-    let proxy_data_framed_rx = proxy_data_framed_rx.map_while(move |proxy_data_packet| {
-        let proxy_packet_data = match proxy_data_packet {
-            Ok(proxy_packet_data) => proxy_packet_data,
-            Err(e) => {
-                error!("Failed to read proxy data: {}", e);
-                return Some(Err(e.into()));
-            }
-        };
-        match proxy_packet_data {
-            ProxyDataPacket::Tcp(proxy_data) => Some(Ok(BytesMut::from_iter(proxy_data))),
-            ProxyDataPacket::Udp {
-                destination_address,
-                ..
-            } => {
-                error!("Invalid kind of proxy data, destination address: {destination_address}");
-                Some(Err(AgentError::InvalidProxyDataType.into()))
-            }
-        }
-    });
-    let (client_to_proxy, proxy_to_client) = futures::join!(
-        client_tcp_framed_rx.forward(proxy_data_framed_tx),
-        proxy_data_framed_rx.forward(client_tcp_framed_tx)
-    );
-    if let Err(e) = client_to_proxy {
-        error!("Failed to send client data to proxy, destination: [{destination_address}]: {e:?}");
-    }
-    if let Err(e) = proxy_to_client {
-        error!("Failed to send proxy data to client, destination: [{destination_address}]: {e:?}");
-    }
+        })
+    };
+    tokio::spawn(client_tcp_framed_rx.forward(proxy_data_framed_tx));
+    tokio::spawn(proxy_data_framed_rx.forward(client_tcp_framed_tx));
     Ok(())
 }
