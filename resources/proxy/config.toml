@@ -1,13 +1,13 @@
 port = 80
 worker_threads = 256
-dst_read_timeout = 0
-dst_write_timeout = 0
+dst_read_timeout = 120
+dst_write_timeout = 120
 rsa_dir = "resources/proxy/rsa"
 max_log_level = "INFO"
 dst_buffer_size = 8388608
 agent_buffer_size = 8388608
-agent_connection_write_timeout = 0
-agent_connection_read_timeout = 0
+agent_connection_write_timeout = 120
+agent_connection_read_timeout = 120
 agent_connection_tcp_keepalive = false
 agent_connection_tcp_keepalive_interval = 75
 agent_connection_tcp_keepalive_time = 7200
