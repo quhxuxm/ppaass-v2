@@ -25,7 +25,7 @@ sudo free -h
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # Start install ppaass
-sudo ps -ef | grep ppaass-v2-proxy | grep -v grep | awk '{print $2}' | xargs sudo kill
+# sudo ps -ef | grep ppaass-v2-proxy | grep -v grep | awk '{print $2}' | xargs sudo kill
 
 sudo rm -rf /ppaass-v2/build
 sudo rm -rf /ppaass-v2/sourcecode
