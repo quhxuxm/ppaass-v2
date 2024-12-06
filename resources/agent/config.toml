@@ -23,3 +23,5 @@ server_socket_backlog = 1024
 client_connection_read_timeout = 120
 client_connection_write_timeout = 120
 client_connection_tcp_keepalive = false
+proxy_connection_start_check_timer = true
+proxy_connection_start_check_timer_interval = 60
