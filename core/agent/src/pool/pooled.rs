@@ -75,14 +75,15 @@ impl Pooled {
                 let rsa_crypto_holder = rsa_crypto_holder.clone();
                 tokio::spawn(async move {
                     loop {
-                        debug!("Start checking connection pool loop.");
                         {
                             let mut remove_indexes = vec![];
                             let mut pool = pool.lock().await;
+                            debug!("Start checking connection pool loop, current pool size: {} ", pool.len());
                             for (index, proxy_connection) in pool.iter_mut().enumerate() {
                                 if !proxy_connection.need_check() {
                                     continue;
                                 }
+                                debug!("Checking connection pool loop, current proxy connection: {proxy_connection:?}");
                                 if let Err(e) = Self::check_proxy_connection(proxy_connection, config.clone(), rsa_crypto_holder.clone()).await {
                                     error!("Failed to check proxy connection: {}", e);
                                     remove_indexes.push(index);
