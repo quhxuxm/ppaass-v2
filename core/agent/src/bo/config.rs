@@ -36,6 +36,10 @@ pub struct Config {
     #[access(get)]
     proxy_connection_pool_size: Option<usize>,
     #[access(get)]
+    proxy_connection_start_check_timer: bool,
+    #[access(get)]
+    proxy_connection_start_check_timer_interval: u64,
+    #[access(get)]
     proxy_connection_check_interval: i64,
     #[access(get)]
     proxy_connection_pool_fill_interval: Option<u64>,
@@ -69,6 +73,7 @@ impl Default for Config {
             client_relay_buffer_size: 1024 * 1024 * 8,
             proxy_relay_buffer_size: 1024 * 1024 * 8,
             proxy_connection_pool_size: Some(32),
+            proxy_connection_start_check_timer: false,
             proxy_connection_check_interval: 60,
             proxy_connection_pool_fill_interval: Some(20),
             proxy_connect_timeout: 20,
@@ -79,6 +84,7 @@ impl Default for Config {
             proxy_connection_tcp_keepalive_retry: 3,
             client_connection_read_timeout: 20,
             client_connection_write_timeout: 20,
+            proxy_connection_start_check_timer_interval: 120,
         }
     }
 }

@@ -12,7 +12,7 @@ where
 {
     inner: T,
     config: Arc<Config>,
-    create_time: DateTime<Utc>,
+    last_check_time: DateTime<Utc>,
 }
 impl<T> PooledProxyConnection<T>
 where
@@ -22,17 +22,19 @@ where
         PooledProxyConnection {
             inner,
             config,
-            create_time: Utc::now(),
+            last_check_time: Utc::now(),
         }
     }
     pub fn need_check(&self) -> bool {
         let now = Utc::now();
-        let delta = now - self.create_time;
+        let delta = now - self.last_check_time;
         delta.num_seconds() > *self.config.proxy_connection_check_interval()
     }
-
-    pub fn create_time(&self) -> &DateTime<Utc> {
-        &self.create_time
+    pub fn update_check_time(&mut self) {
+        self.last_check_time = Utc::now();
+    }
+    pub fn last_check_time(&self) -> &DateTime<Utc> {
+        &self.last_check_time
     }
 }
 impl<T> AsyncRead for PooledProxyConnection<T>

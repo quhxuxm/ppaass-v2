@@ -16,7 +16,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, timeout};
-use tokio_util::codec::Framed;
+use tokio_util::codec::{Framed, FramedParts};
 use tracing::{debug, error};
 pub struct Pooled {
     pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
@@ -48,11 +48,12 @@ impl Pooled {
                         filling_connection.clone(),
                         initial_pool_size,
                     )
-                    .await;
+                        .await;
                 }
                 Some(interval) => {
                     let config = config.clone();
                     let interval = *interval;
+                    let pool = pool.clone();
                     tokio::spawn(async move {
                         loop {
                             debug!("Starting connection pool auto filling loop.");
@@ -63,11 +64,37 @@ impl Pooled {
                                 filling_connection.clone(),
                                 initial_pool_size,
                             )
-                            .await;
+                                .await;
                             sleep(Duration::from_secs(interval)).await;
                         }
                     });
                 }
+            }
+            if *config.proxy_connection_start_check_timer() {
+                let config = config.clone();
+                let rsa_crypto_holder = rsa_crypto_holder.clone();
+                tokio::spawn(async move {
+                    loop {
+                        debug!("Start checking connection pool loop.");
+                        {
+                            let mut remove_indexes = vec![];
+                            let mut pool = pool.lock().await;
+                            for (index, proxy_connection) in pool.iter_mut().enumerate() {
+                                if !proxy_connection.need_check() {
+                                    continue;
+                                }
+                                if let Err(e) = Self::check_proxy_connection(proxy_connection, config.clone(), rsa_crypto_holder.clone()).await {
+                                    error!("Failed to check proxy connection: {}", e);
+                                    remove_indexes.push(index);
+                                };
+                            }
+                            for index in remove_indexes {
+                                pool.remove(index);
+                            }
+                        }
+                        sleep(Duration::from_secs(*config.proxy_connection_start_check_timer_interval())).await;
+                    }
+                });
             }
         }
         Ok(Self {
@@ -90,7 +117,7 @@ impl Pooled {
             self.initial_pool_size,
             self.rsa_crypto_holder.clone(),
         )
-        .await
+            .await
     }
     pub async fn return_proxy_connection(
         &self,
@@ -109,7 +136,7 @@ impl Pooled {
             Duration::from_secs(*config.proxy_connect_timeout()),
             TcpStream::connect(proxy_addresses.as_slice()),
         )
-        .await
+            .await
         {
             Ok(Ok(proxy_tcp_stream)) => proxy_tcp_stream,
             Ok(Err(e)) => {
@@ -178,7 +205,7 @@ impl Pooled {
                         filling_connection.clone(),
                         pool_size,
                     )
-                    .await;
+                        .await;
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
@@ -192,7 +219,7 @@ impl Pooled {
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                        .await
+                            .await
                         {
                             Ok(()) => return Ok(proxy_connection),
                             Err(e) => {
@@ -240,6 +267,8 @@ impl Pooled {
             }
             ProxyControlPacket::Heartbeat(pong) => {
                 debug!("Received heartbeat from {pong:?}");
+                let FramedParts { io: proxy_connection, .. } = proxy_ctl_framed.into_parts();
+                proxy_connection.update_check_time();
                 Ok(())
             }
         }
@@ -288,7 +317,7 @@ impl Pooled {
             }
             pool.lock()
                 .await
-                .sort_by(|v1, v2| v1.create_time().cmp(v2.create_time()));
+                .sort_by(|v1, v2| v1.last_check_time().cmp(v2.last_check_time()));
             filling_connection.store(false, Ordering::Relaxed);
         });
     }
