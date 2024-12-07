@@ -122,7 +122,12 @@ impl Pooled {
                         });
                     }
                     drop(checking_tx);
+                    let mut connections = Vec::new();
                     while let Some(proxy_connection) = checking_rx.recv().await {
+                        connections.push(proxy_connection);
+                    }
+                    connections.sort_by(|a, b| a.last_check_time().cmp(&b.last_check_time()));
+                    for proxy_connection in connections {
                         match pool.push(proxy_connection) {
                             Ok(()) => {
                                 debug!("Success push proxy connection back to pool after checking, current pool size: {}", pool.len());
