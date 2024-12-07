@@ -45,17 +45,4 @@ impl ProxyConnectionPool {
             ProxyConnectionPool::Pooled(pooled) => pooled.take_proxy_connection().await,
         }
     }
-    pub async fn return_proxy_connection(
-        &self,
-        proxy_tcp_stream: PooledProxyConnection<TcpStream>,
-    ) -> Result<(), AgentError> {
-        match self {
-            ProxyConnectionPool::UnPooled(un_pooled) => {
-                un_pooled.return_proxy_connection(proxy_tcp_stream).await
-            }
-            ProxyConnectionPool::Pooled(pooled) => {
-                pooled.return_proxy_connection(proxy_tcp_stream).await
-            }
-        }
-    }
 }

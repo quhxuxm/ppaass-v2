@@ -4,6 +4,7 @@ use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
 use crate::pool::{parse_proxy_address, PooledProxyConnection};
 use chrono::Utc;
+use concurrent_queue::{ConcurrentQueue, PopError, PushError};
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPing;
 use ppaass_domain::{AgentControlPacket, ProxyControlPacket};
@@ -14,97 +15,145 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Sender};
-use tokio::sync::Mutex;
 use tokio::time::{sleep, timeout};
 use tokio_util::codec::{Framed, FramedParts};
 use tracing::{debug, error};
 pub struct Pooled {
-    pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
+    pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
     config: Arc<Config>,
     proxy_addresses: Arc<Vec<SocketAddr>>,
-    filling_connection: Arc<AtomicBool>,
-    initial_pool_size: usize,
+    max_pool_size: usize,
     rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
+    checking: Arc<AtomicBool>,
 }
 impl Pooled {
     pub async fn new(
         config: Arc<Config>,
-        initial_pool_size: usize,
+        max_pool_size: usize,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
         let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
-        let pool = Arc::new(Mutex::new(Vec::with_capacity(initial_pool_size)));
-        let filling_connection = Arc::new(AtomicBool::new(false));
-        {
-            let pool = pool.clone();
-            let proxy_addresses = proxy_addresses.clone();
-            let filling_connection = filling_connection.clone();
-            match &config.proxy_connection_pool_fill_interval() {
-                None => {
-                    Self::fill_pool(
-                        pool.clone(),
-                        proxy_addresses.clone(),
-                        config.clone(),
-                        filling_connection.clone(),
-                        initial_pool_size,
-                    )
-                        .await;
-                }
-                Some(interval) => {
-                    let config = config.clone();
-                    let interval = *interval;
-                    let pool = pool.clone();
-                    tokio::spawn(async move {
-                        loop {
-                            debug!("Starting connection pool auto filling loop.");
-                            Self::fill_pool(
-                                pool.clone(),
-                                proxy_addresses.clone(),
-                                config.clone(),
-                                filling_connection.clone(),
-                                initial_pool_size,
-                            )
-                                .await;
-                            sleep(Duration::from_secs(interval)).await;
-                        }
-                    });
-                }
+        let pool = Arc::new(ConcurrentQueue::bounded(max_pool_size));
+        let proxy_addresses = proxy_addresses.clone();
+        let checking = Arc::new(AtomicBool::new(false));
+
+        match &config.proxy_connection_pool_fill_interval() {
+            None => {
+                Self::fill_pool(
+                    pool.clone(),
+                    proxy_addresses.clone(),
+                    config.clone(),
+                    max_pool_size,
+                )
+                .await;
             }
-            if *config.proxy_connection_start_check_timer() {
+            Some(interval) => {
                 let config = config.clone();
-                let rsa_crypto_holder = rsa_crypto_holder.clone();
+                let interval = *interval;
+                let pool = pool.clone();
+                let proxy_addresses = proxy_addresses.clone();
                 tokio::spawn(async move {
                     loop {
-                        {
-                            let mut remove_indexes = vec![];
-                            let mut pool = pool.lock().await;
-                            debug!("Start checking connection pool loop, current pool size: {} ", pool.len());
-                            for (index, proxy_connection) in pool.iter_mut().enumerate() {
-                                if !proxy_connection.need_check() {
-                                    continue;
-                                }
-                                debug!("Checking connection pool loop, current proxy connection: {proxy_connection:?}");
-                                if let Err(e) = Self::check_proxy_connection(proxy_connection, config.clone(), rsa_crypto_holder.clone()).await {
-                                    error!("Failed to check proxy connection: {}", e);
-                                    remove_indexes.push(index);
-                                };
-                            }
-                            for index in remove_indexes {
-                                pool.remove(index);
-                            }
-                        }
-                        sleep(Duration::from_secs(*config.proxy_connection_start_check_timer_interval())).await;
+                        debug!("Starting connection pool auto filling loop.");
+                        Self::fill_pool(
+                            pool.clone(),
+                            proxy_addresses.clone(),
+                            config.clone(),
+                            max_pool_size,
+                        )
+                        .await;
+                        sleep(Duration::from_secs(interval)).await;
                     }
                 });
             }
         }
+        if *config.proxy_connection_start_check_timer() {
+            let config = config.clone();
+            let rsa_crypto_holder = rsa_crypto_holder.clone();
+            let pool = pool.clone();
+            let checking = checking.clone();
+            tokio::spawn(async move {
+                loop {
+                    checking.store(true, Ordering::Relaxed);
+                    debug!(
+                        "Start checking connection pool loop, current pool size: {} ",
+                        pool.len()
+                    );
+                    let (checking_tx, mut checking_rx) =
+                        channel::<PooledProxyConnection<TcpStream>>(pool.len());
+                    'checking_single: loop {
+                        let proxy_connection = match pool.pop() {
+                            Ok(proxy_connection) => proxy_connection,
+                            Err(PopError::Closed) => {
+                                debug!("Stop checking because of connection pool closed.");
+                                checking.store(false, Ordering::Relaxed);
+                                return;
+                            }
+                            Err(PopError::Empty) => {
+                                break 'checking_single;
+                            }
+                        };
+                        if !proxy_connection.need_check() {
+                            if let Err(e) = checking_tx.send(proxy_connection).await {
+                                error!("Fail to push proxy connection back to pool: {}", e);
+                            }
+                            continue;
+                        }
+                        let checking_tx = checking_tx.clone();
+                        let config = config.clone();
+                        let rsa_crypto_holder = rsa_crypto_holder.clone();
+                        tokio::spawn(async move {
+                            let proxy_connection = match Self::check_proxy_connection(
+                                proxy_connection,
+                                config.clone(),
+                                rsa_crypto_holder.clone(),
+                            )
+                            .await
+                            {
+                                Ok(proxy_connection) => proxy_connection,
+                                Err(e) => {
+                                    error!("Failed to check proxy connection: {}", e);
+                                    return;
+                                }
+                            };
+                            if let Err(e) = checking_tx.send(proxy_connection).await {
+                                error!("Fail to push proxy connection back to pool: {}", e);
+                            };
+                        });
+                    }
+                    drop(checking_tx);
+                    while let Some(proxy_connection) = checking_rx.recv().await {
+                        match pool.push(proxy_connection) {
+                            Ok(()) => {
+                                debug!("Success push proxy connection back to pool after checking, current pool size: {}", pool.len());
+                                continue;
+                            }
+                            Err(PushError::Closed(proxy_connection)) => {
+                                debug!("Stop checking because of connection pool closed, current checking proxy connection :{proxy_connection:?}");
+                                return;
+                            }
+                            Err(PushError::Full(proxy_connection)) => {
+                                debug!("Drop proxy connection because of after checking connection pool is full, current checking proxy connection :{proxy_connection:?}");
+                                continue;
+                            }
+                        };
+                    }
+                    checking.store(false, Ordering::Relaxed);
+                    sleep(Duration::from_secs(
+                        *config.proxy_connection_start_check_timer_interval(),
+                    ))
+                    .await;
+                }
+            });
+        }
+
         Ok(Self {
             pool,
             config,
             proxy_addresses,
-            filling_connection,
-            initial_pool_size,
+            max_pool_size,
             rsa_crypto_holder,
+            checking,
         })
     }
     pub async fn take_proxy_connection(
@@ -114,20 +163,13 @@ impl Pooled {
             self.pool.clone(),
             self.proxy_addresses.clone(),
             self.config.clone(),
-            self.filling_connection.clone(),
-            self.initial_pool_size,
+            self.max_pool_size,
             self.rsa_crypto_holder.clone(),
+            self.checking.clone(),
         )
-            .await
+        .await
     }
-    pub async fn return_proxy_connection(
-        &self,
-        proxy_tcp_stream: PooledProxyConnection<TcpStream>,
-    ) -> Result<(), AgentError> {
-        let mut pool = self.pool.lock().await;
-        pool.push(proxy_tcp_stream);
-        Ok(())
-    }
+
     async fn create_proxy_tcp_stream(
         config: Arc<Config>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
@@ -137,7 +179,7 @@ impl Pooled {
             Duration::from_secs(*config.proxy_connect_timeout()),
             TcpStream::connect(proxy_addresses.as_slice()),
         )
-            .await
+        .await
         {
             Ok(Ok(proxy_tcp_stream)) => proxy_tcp_stream,
             Ok(Err(e)) => {
@@ -182,47 +224,46 @@ impl Pooled {
         Ok(())
     }
     async fn concrete_take_proxy_connection(
-        pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
+        pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
-        filling_connection: Arc<AtomicBool>,
         pool_size: usize,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
+        checking: Arc<AtomicBool>,
     ) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         loop {
-            let pool_clone = pool.clone();
-            let mut pool = pool.lock().await;
+            let pool = pool.clone();
             let current_pool_size = pool.len();
             debug!("Taking proxy connection, current pool size: {current_pool_size}");
             let proxy_connection = pool.pop();
-            drop(pool);
             match proxy_connection {
-                None => {
+                Err(PopError::Closed) => {
+                    return Err(AgentError::ProxyConnectionPool(
+                        "Proxy connection pool closed.".to_string(),
+                    ));
+                }
+                Err(PopError::Empty) => {
                     debug!("No proxy connection available, current pool size: {current_pool_size}");
-                    Self::fill_pool(
-                        pool_clone,
-                        proxy_addresses.clone(),
-                        config.clone(),
-                        filling_connection.clone(),
-                        pool_size,
-                    )
-                        .await;
+                    if !checking.load(Ordering::Relaxed) {
+                        Self::fill_pool(pool, proxy_addresses.clone(), config.clone(), pool_size)
+                            .await;
+                    }
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
-                Some(mut proxy_connection) => {
+                Ok(proxy_connection) => {
                     debug!("Proxy connection available, current pool size before take: {current_pool_size}");
                     if !proxy_connection.need_check() {
                         return Ok(proxy_connection);
                     } else {
                         match Self::check_proxy_connection(
-                            &mut proxy_connection,
+                            proxy_connection,
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                            .await
+                        .await
                         {
-                            Ok(()) => return Ok(proxy_connection),
+                            Ok(proxy_connection) => return Ok(proxy_connection),
                             Err(e) => {
                                 error!("Failed to check proxy connection: {e}");
                                 continue;
@@ -234,10 +275,10 @@ impl Pooled {
         }
     }
     async fn check_proxy_connection(
-        proxy_connection: &mut PooledProxyConnection<TcpStream>,
+        proxy_connection: PooledProxyConnection<TcpStream>,
         config: Arc<Config>,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
-    ) -> Result<(), AgentError> {
+    ) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         debug!("Checking proxy connection : {proxy_connection:?}");
         let config = config.clone();
         let rsa_crypto_holder = rsa_crypto_holder.clone();
@@ -268,37 +309,38 @@ impl Pooled {
             }
             ProxyControlPacket::Heartbeat(pong) => {
                 debug!("Received heartbeat from {pong:?}");
-                let FramedParts { io: proxy_connection, .. } = proxy_ctl_framed.into_parts();
+                let FramedParts {
+                    io: mut proxy_connection,
+                    ..
+                } = proxy_ctl_framed.into_parts();
                 proxy_connection.update_check_time();
-                Ok(())
+                Ok(proxy_connection)
             }
         }
     }
     async fn fill_pool(
-        pool: Arc<Mutex<Vec<PooledProxyConnection<TcpStream>>>>,
+        pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
-        filling_connection: Arc<AtomicBool>,
-        initial_pool_size: usize,
+        max_pool_size: usize,
     ) {
-        if filling_connection.load(Ordering::Relaxed) {
+        if pool.len() == max_pool_size {
             debug!("Filling proxy connection pool, no need to start filling task(outside task).");
             return;
         }
         tokio::spawn(async move {
-            if filling_connection.load(Ordering::Relaxed) {
+            if pool.len() == max_pool_size {
                 debug!(
                     "Filling proxy connection pool, no need to start filling task(inside task)."
                 );
                 return;
             }
             debug!("Begin to fill proxy connection pool");
-            filling_connection.store(true, Ordering::Relaxed);
             let (proxy_connection_tx, mut proxy_connection_rx) =
-                channel::<PooledProxyConnection<TcpStream>>(initial_pool_size);
-            let current_pool_size = pool.lock().await.len();
+                channel::<PooledProxyConnection<TcpStream>>(max_pool_size);
+            let current_pool_size = pool.len();
             debug!("Current pool size: {current_pool_size}");
-            for _ in current_pool_size..initial_pool_size {
+            for _ in current_pool_size..max_pool_size {
                 let proxy_addresses = proxy_addresses.clone();
                 tokio::spawn(Self::create_proxy_tcp_stream(
                     config.clone(),
@@ -309,17 +351,21 @@ impl Pooled {
             drop(proxy_connection_tx);
             debug!("Waiting for proxy connection creation");
             while let Some(proxy_connection) = proxy_connection_rx.recv().await {
-                let mut pool = pool.lock().await;
-                pool.push(proxy_connection);
-                debug!(
-                    "Proxy connection creation add to pool, current pool size: {}",
-                    pool.len()
-                );
+                match pool.push(proxy_connection) {
+                    Ok(()) => {
+                        debug!(
+                            "Proxy connection creation add to pool, current pool size: {}",
+                            pool.len()
+                        );
+                    }
+                    Err(PushError::Full(proxy_connection)) => {
+                        error!("Failed to push connection into pool because of pool full: {proxy_connection:?}");
+                    }
+                    Err(PushError::Closed(proxy_connection)) => {
+                        error!("Failed to push connection into pool because of pool closed: {proxy_connection:?}");
+                    }
+                }
             }
-            pool.lock()
-                .await
-                .sort_by(|v1, v2| v1.last_check_time().cmp(v2.last_check_time()));
-            filling_connection.store(false, Ordering::Relaxed);
         });
     }
 }

@@ -34,6 +34,6 @@ tokio-io-timeout = "1.2.0"
 mimalloc = "0.1.43"
 url = "2.5.4"
 socket2 = "0.5.8"
-
+concurrent-queue = "2.5.0"
 
 
