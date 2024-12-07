@@ -248,7 +248,7 @@ impl Pooled {
                         Self::fill_pool(pool, proxy_addresses.clone(), config.clone(), pool_size)
                             .await;
                     }
-                    sleep(Duration::from_millis(100)).await;
+                    sleep(Duration::from_millis(2000)).await;
                     continue;
                 }
                 Ok(proxy_connection) => {
