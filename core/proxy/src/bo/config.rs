@@ -41,6 +41,10 @@ pub struct Config {
     agent_connection_read_timeout: u64,
     #[access(get)]
     server_socket_backlog: u16,
+    #[access(get)]
+    forward_server_addresses: Option<Vec<String>>,
+    #[access(get)]
+    forward_auth_token: Option<String>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -64,6 +68,8 @@ impl Default for Config {
             dst_tcp_keepalive_interval: 75,
             dst_tcp_keepalive_time: 7200,
             dst_tcp_keepalive_retry: 9,
+            forward_server_addresses: Some(vec!["127.0.0.1".to_string()]),
+            forward_auth_token: None,
         }
     }
 }

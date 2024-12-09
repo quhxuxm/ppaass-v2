@@ -32,12 +32,13 @@ pub async fn tunnel_init(
     } = tunnel_init_request;
     let destination_transport = match &tunnel_type {
         TunnelType::Tcp { keepalive } => {
-            DestinationTransport::new_tcp(&dst_address, server_state.clone(), *keepalive).await?
+            DestinationTransport::new_tcp(&dst_address, *keepalive, server_state.clone()).await?
         }
         TunnelType::Udp => {
             DestinationTransport::new_udp(&dst_address, server_state.clone()).await?
         }
     };
+
     let proxy_encryption = Encryption::Aes(random_32_bytes());
     publish_server_event(
         server_state.server_event_tx(),

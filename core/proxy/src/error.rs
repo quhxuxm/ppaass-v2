@@ -21,6 +21,10 @@ pub enum ProxyError {
     FromHex(#[from] CodecError),
     #[error(transparent)]
     DstConnectTimeout(#[from] tokio::time::error::Elapsed),
+    #[error("Invalid data type")]
+    InvalidData,
+    #[error("Forward proxy tcp connection exhausted")]
+    ForwardProxyTcpConnectionExhausted,
 }
 impl From<ProxyError> for std::io::Error {
     fn from(value: ProxyError) -> Self {

@@ -2,7 +2,7 @@ use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::codec::ControlPacketCodec;
-use crate::crypto::ProxyRsaCryptoHolder;
+use crate::crypto::{ProxyForwardRsaCryptoHolder, ProxyRsaCryptoHolder};
 use crate::error::ProxyError;
 use crate::handler::{RelayStartRequest, TunnelInitResult};
 use crate::{handler, publish_server_event};
@@ -27,7 +27,8 @@ impl ProxyServer {
         let mut server_state_builder = ServerStateBuilder::default();
         server_state_builder
             .config(config.clone())
-            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config)?))
+            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.clone())?))
+            .forward_rsa_crypto_holder(Arc::new(ProxyForwardRsaCryptoHolder::new(config)?))
             .server_event_tx(Arc::new(server_event_tx));
         Ok((
             Self {

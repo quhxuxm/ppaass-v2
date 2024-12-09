@@ -1,4 +1,4 @@
-port = 80
+port = 90
 worker_threads = 256
 dst_read_timeout = 120
 dst_write_timeout = 120
@@ -17,5 +17,5 @@ dst_connect_timeout = 20
 dst_tcp_keepalive_interval = 75
 dst_tcp_keepalive_time = 7200
 dst_tcp_keepalive_retry = 9
-forward_server_addresses = ["127.0.0.1:90"]
-forward_auth_token = "user2"
+#forward_server_addresses = ["127.0.0.1:80"]
+#forward_auth_token"user2"

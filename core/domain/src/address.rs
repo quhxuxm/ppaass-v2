@@ -24,6 +24,13 @@ impl Display for UnifiedAddress {
         }
     }
 }
+impl TryFrom<&str> for UnifiedAddress {
+    type Error = DomainError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.to_string().try_into()
+    }
+}
+
 impl TryFrom<String> for UnifiedAddress {
     type Error = DomainError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -56,6 +63,13 @@ impl TryFrom<String> for UnifiedAddress {
         }
     }
 }
+impl TryFrom<UnifiedAddress> for Vec<SocketAddr> {
+    type Error = DomainError;
+    fn try_from(value: UnifiedAddress) -> Result<Self, Self::Error> {
+        (&value).try_into()
+    }
+}
+
 impl TryFrom<&UnifiedAddress> for Vec<SocketAddr> {
     type Error = DomainError;
     fn try_from(value: &UnifiedAddress) -> Result<Self, Self::Error> {
