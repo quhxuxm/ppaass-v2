@@ -40,6 +40,8 @@ pub struct Config {
     #[access(get)]
     proxy_connection_start_check_timer_interval: u64,
     #[access(get)]
+    proxy_connection_max_lifetime: i64,
+    #[access(get)]
     proxy_connection_check_interval: i64,
     #[access(get)]
     proxy_connection_pool_fill_interval: Option<u64>,
@@ -85,6 +87,7 @@ impl Default for Config {
             client_connection_read_timeout: 20,
             client_connection_write_timeout: 20,
             proxy_connection_start_check_timer_interval: 120,
+            proxy_connection_max_lifetime: 300,
         }
     }
 }

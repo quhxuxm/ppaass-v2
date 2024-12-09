@@ -93,6 +93,10 @@ impl Pooled {
                                 break 'checking_single;
                             }
                         };
+                        if proxy_connection.need_close() {
+                            debug!("Close proxy connection because of it exceed max life time: {proxy_connection:?}");
+                            continue;
+                        }
                         if !proxy_connection.need_check() {
                             if let Err(e) = checking_tx.send(proxy_connection).await {
                                 error!("Fail to push proxy connection back to pool: {}", e);
