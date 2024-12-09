@@ -27,3 +27,5 @@ client_connection_tcp_keepalive = false
 proxy_connection_start_check_timer = true
 proxy_connection_start_check_timer_interval = 60
 proxy_connection_max_lifetime = 300
+proxy_connection_max_ping_pong_time = 10
+proxy_connection_ping_pong_read_timeout = 10
