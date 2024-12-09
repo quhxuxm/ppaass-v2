@@ -295,12 +295,15 @@ impl Pooled {
             proxy_connection,
             ControlPacketCodec::new(config.auth_token().to_owned(), rsa_crypto_holder.clone()),
         );
-        let ping_start_time = Utc::now();
-        proxy_ctl_framed
+        if let Err(e) = proxy_ctl_framed
             .send(AgentControlPacket::Heartbeat(HeartbeatPing {
                 heartbeat_time: Utc::now(),
             }))
-            .await?;
+            .await
+        {
+            proxy_ctl_framed.close().await?;
+            return Err(e);
+        };
         let pong_packet = match timeout(
             Duration::from_secs(*config.proxy_connection_ping_pong_read_timeout()),
             proxy_ctl_framed.next(),
@@ -308,15 +311,18 @@ impl Pooled {
         .await
         {
             Err(_) => {
+                proxy_ctl_framed.close().await?;
                 error!("Proxy connection do ping pong timeout.");
                 return Err(AgentError::UnhealthyProxyConnection);
             }
             Ok(None) => {
+                proxy_ctl_framed.close().await?;
                 error!("Proxy connection closed already.");
                 return Err(AgentError::ProxyConnectionExhausted);
             }
 
             Ok(Some(Err(e))) => {
+                proxy_ctl_framed.close().await?;
                 error!("Fail to receive heartbeat pong from proxy: {e:?}");
                 return Err(e);
             }
@@ -329,11 +335,7 @@ impl Pooled {
             }
             ProxyControlPacket::Heartbeat(pong) => {
                 debug!("Received heartbeat from {pong:?}");
-                let pong_end_time = Utc::now();
-                let delta = pong_end_time - ping_start_time;
-                if delta.num_seconds() > *config.proxy_connection_max_ping_pong_time() {
-                    return Err(AgentError::UnhealthyProxyConnection);
-                }
+
                 let FramedParts {
                     io: mut proxy_connection,
                     ..
