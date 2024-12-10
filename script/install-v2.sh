@@ -49,6 +49,7 @@ cargo build --release --package proxy
 # ps -ef | grep gradle | grep -v grep | awk '{print $2}' | xargs kill -9
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/* /ppaass-v2/build/resources
 sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/rsa/* /ppaass-v2/build/resources/proxy/rsa
+sudo cp -r /ppaass-v2/sourcecode/ppaass-v2/resources/proxy/forward_rsa/* /ppaass-v2/build/resources/proxy/forward_rsa
 sudo cp /ppaass-v2/sourcecode/ppaass-v2/core/target/release/ppaass-proxy /ppaass-v2/build/ppaass-v2-proxy
 sudo cp /ppaass-v2/sourcecode/ppaass-v2/script/start-proxy.sh /ppaass-v2/build/
 
