@@ -209,8 +209,6 @@ impl Pooled {
             }
         };
         let proxy_socket = SockRef::from(&proxy_tcp_stream);
-        proxy_socket.set_reuse_address(true)?;
-        proxy_socket.set_keepalive(true)?;
         let keepalive = TcpKeepalive::new()
             .with_interval(Duration::from_secs(
                 *config.proxy_connection_tcp_keepalive_interval(),
@@ -221,6 +219,7 @@ impl Pooled {
         #[cfg(target_os = "linux")]
         keepalive.with_retries(*config.proxy_connection_tcp_keepalive_retry());
         proxy_socket.set_tcp_keepalive(&keepalive)?;
+        proxy_socket.set_linger(None)?;
         proxy_socket.set_nodelay(true)?;
         proxy_socket.set_read_timeout(Some(Duration::from_secs(
             *config.proxy_connection_read_timeout(),
