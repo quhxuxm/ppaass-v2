@@ -36,7 +36,6 @@ impl Pooled {
         let pool = Arc::new(ConcurrentQueue::bounded(max_pool_size));
         let proxy_addresses = proxy_addresses.clone();
         let checking = Arc::new(AtomicBool::new(false));
-
         match &config.proxy_connection_pool_fill_interval() {
             None => {
                 Self::fill_pool(
@@ -45,7 +44,7 @@ impl Pooled {
                     config.clone(),
                     max_pool_size,
                 )
-                .await;
+                    .await;
             }
             Some(interval) => {
                 let config = config.clone();
@@ -61,7 +60,7 @@ impl Pooled {
                             config.clone(),
                             max_pool_size,
                         )
-                        .await;
+                            .await;
                         sleep(Duration::from_secs(interval)).await;
                     }
                 });
@@ -72,90 +71,8 @@ impl Pooled {
             let rsa_crypto_holder = rsa_crypto_holder.clone();
             let pool = pool.clone();
             let checking = checking.clone();
-            tokio::spawn(async move {
-                loop {
-                    checking.store(true, Ordering::Relaxed);
-                    debug!(
-                        "Start checking connection pool loop, current pool size: {} ",
-                        pool.len()
-                    );
-                    let (checking_tx, mut checking_rx) =
-                        channel::<PooledProxyConnection<TcpStream>>(pool.len());
-                    'checking_single: loop {
-                        let proxy_connection = match pool.pop() {
-                            Ok(proxy_connection) => proxy_connection,
-                            Err(PopError::Closed) => {
-                                debug!("Stop checking because of connection pool closed.");
-                                checking.store(false, Ordering::Relaxed);
-                                return;
-                            }
-                            Err(PopError::Empty) => {
-                                break 'checking_single;
-                            }
-                        };
-                        if proxy_connection.need_close() {
-                            debug!("Close proxy connection because of it exceed max life time: {proxy_connection:?}");
-                            continue;
-                        }
-                        if !proxy_connection.need_check() {
-                            if let Err(e) = checking_tx.send(proxy_connection).await {
-                                error!("Fail to push proxy connection back to pool: {}", e);
-                            }
-                            continue;
-                        }
-                        let checking_tx = checking_tx.clone();
-                        let config = config.clone();
-                        let rsa_crypto_holder = rsa_crypto_holder.clone();
-                        tokio::spawn(async move {
-                            let proxy_connection = match Self::check_proxy_connection(
-                                proxy_connection,
-                                config.clone(),
-                                rsa_crypto_holder.clone(),
-                            )
-                            .await
-                            {
-                                Ok(proxy_connection) => proxy_connection,
-                                Err(e) => {
-                                    error!("Failed to check proxy connection: {}", e);
-                                    return;
-                                }
-                            };
-                            if let Err(e) = checking_tx.send(proxy_connection).await {
-                                error!("Fail to push proxy connection back to pool: {}", e);
-                            };
-                        });
-                    }
-                    drop(checking_tx);
-                    let mut connections = Vec::new();
-                    while let Some(proxy_connection) = checking_rx.recv().await {
-                        connections.push(proxy_connection);
-                    }
-                    connections.sort_by(|a, b| a.last_check_time().cmp(&b.last_check_time()));
-                    for proxy_connection in connections {
-                        match pool.push(proxy_connection) {
-                            Ok(()) => {
-                                debug!("Success push proxy connection back to pool after checking, current pool size: {}", pool.len());
-                                continue;
-                            }
-                            Err(PushError::Closed(proxy_connection)) => {
-                                debug!("Stop checking because of connection pool closed, current checking proxy connection :{proxy_connection:?}");
-                                return;
-                            }
-                            Err(PushError::Full(proxy_connection)) => {
-                                debug!("Drop proxy connection because of after checking connection pool is full, current checking proxy connection :{proxy_connection:?}");
-                                continue;
-                            }
-                        };
-                    }
-                    checking.store(false, Ordering::Relaxed);
-                    sleep(Duration::from_secs(
-                        *config.proxy_connection_start_check_timer_interval(),
-                    ))
-                    .await;
-                }
-            });
+            Self::start_connection_check_task(config, rsa_crypto_holder, pool, checking);
         }
-
         Ok(Self {
             pool,
             config,
@@ -164,6 +81,90 @@ impl Pooled {
             rsa_crypto_holder,
             checking,
         })
+    }
+    fn start_connection_check_task(config: Arc<Config>, rsa_crypto_holder: Arc<AgentRsaCryptoHolder>, pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>, checking: Arc<AtomicBool>) {
+        tokio::spawn(async move {
+            loop {
+                checking.store(true, Ordering::Relaxed);
+                debug!(
+                        "Start checking connection pool loop, current pool size: {} ",
+                        pool.len()
+                    );
+                let (checking_tx, mut checking_rx) =
+                    channel::<PooledProxyConnection<TcpStream>>(pool.len());
+                'checking_single: loop {
+                    let proxy_connection = match pool.pop() {
+                        Ok(proxy_connection) => proxy_connection,
+                        Err(PopError::Closed) => {
+                            debug!("Stop checking because of connection pool closed.");
+                            checking.store(false, Ordering::Relaxed);
+                            return;
+                        }
+                        Err(PopError::Empty) => {
+                            break 'checking_single;
+                        }
+                    };
+                    if proxy_connection.need_close() {
+                        debug!("Close proxy connection because of it exceed max life time: {proxy_connection:?}");
+                        continue;
+                    }
+                    if !proxy_connection.need_check() {
+                        if let Err(e) = checking_tx.send(proxy_connection).await {
+                            error!("Fail to push proxy connection back to pool: {}", e);
+                        }
+                        continue;
+                    }
+                    let checking_tx = checking_tx.clone();
+                    let config = config.clone();
+                    let rsa_crypto_holder = rsa_crypto_holder.clone();
+                    tokio::spawn(async move {
+                        let proxy_connection = match Self::check_proxy_connection(
+                            proxy_connection,
+                            config.clone(),
+                            rsa_crypto_holder.clone(),
+                        )
+                            .await
+                        {
+                            Ok(proxy_connection) => proxy_connection,
+                            Err(e) => {
+                                error!("Failed to check proxy connection: {}", e);
+                                return;
+                            }
+                        };
+                        if let Err(e) = checking_tx.send(proxy_connection).await {
+                            error!("Fail to push proxy connection back to pool: {}", e);
+                        };
+                    });
+                }
+                drop(checking_tx);
+                let mut connections = Vec::new();
+                while let Some(proxy_connection) = checking_rx.recv().await {
+                    connections.push(proxy_connection);
+                }
+                connections.sort_by(|a, b| a.last_check_time().cmp(b.last_check_time()));
+                for proxy_connection in connections {
+                    match pool.push(proxy_connection) {
+                        Ok(()) => {
+                            debug!("Success push proxy connection back to pool after checking, current pool size: {}", pool.len());
+                            continue;
+                        }
+                        Err(PushError::Closed(proxy_connection)) => {
+                            debug!("Stop checking because of connection pool closed, current checking proxy connection :{proxy_connection:?}");
+                            return;
+                        }
+                        Err(PushError::Full(proxy_connection)) => {
+                            debug!("Drop proxy connection because of after checking connection pool is full, current checking proxy connection :{proxy_connection:?}");
+                            continue;
+                        }
+                    };
+                }
+                checking.store(false, Ordering::Relaxed);
+                sleep(Duration::from_secs(
+                    *config.proxy_connection_start_check_timer_interval(),
+                ))
+                    .await;
+            }
+        });
     }
     pub async fn take_proxy_connection(
         &self,
@@ -176,9 +177,8 @@ impl Pooled {
             self.rsa_crypto_holder.clone(),
             self.checking.clone(),
         )
-        .await
+            .await
     }
-
     async fn create_proxy_tcp_stream(
         config: Arc<Config>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
@@ -188,7 +188,7 @@ impl Pooled {
             Duration::from_secs(*config.proxy_connect_timeout()),
             TcpStream::connect(proxy_addresses.as_slice()),
         )
-        .await
+            .await
         {
             Ok(Ok(proxy_tcp_stream)) => proxy_tcp_stream,
             Ok(Err(e)) => {
@@ -270,7 +270,7 @@ impl Pooled {
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                        .await
+                            .await
                         {
                             Ok(proxy_connection) => return Ok(proxy_connection),
                             Err(e) => {
@@ -304,7 +304,7 @@ impl Pooled {
             Duration::from_secs(*config.proxy_connection_ping_pong_read_timeout()),
             proxy_ctl_framed.next(),
         )
-        .await
+            .await
         {
             Err(_) => {
                 error!("Proxy connection do ping pong timeout.");
@@ -328,7 +328,6 @@ impl Pooled {
             }
             ProxyControlPacket::Heartbeat(pong) => {
                 debug!("Received heartbeat from {pong:?}");
-
                 let FramedParts {
                     io: mut proxy_connection,
                     ..
