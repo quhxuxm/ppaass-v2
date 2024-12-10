@@ -121,7 +121,7 @@ impl DestinationTransport {
                     dst_tcp_stream,
                     ForwardDestinationTransportControlPacketCodec::new(
                         forward_auth_token.clone(),
-                        server_state.forward_rsa_crypto_holder().clone(),
+                        server_state.forward_rsa_crypto_holder().clone().ok_or(ProxyError::RsaCryptoNotExist("Forward proxy rsa crypto holder not initialized".to_string()))?,
                     ),
                     *server_state.config().dst_buffer_size(),
                 );

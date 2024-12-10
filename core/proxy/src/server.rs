@@ -29,11 +29,13 @@ impl ProxyServer {
     pub fn new(config: Arc<Config>) -> Result<(Self, Receiver<ProxyServerEvent>), ProxyError> {
         let (server_event_tx, server_event_rx) = channel::<ProxyServerEvent>(1024);
         let mut server_state_builder = ServerStateBuilder::default();
-        server_state_builder
+        let mut server_state_builder = server_state_builder
             .config(config.clone())
-            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.rsa_dir(), USER_AGENT_PUBLIC_KEY.to_owned(), USER_PROXY_PRIVATE_KEY.to_owned())?))
-            .forward_rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.forward_rsa_dir(), FORWARD_PROXY_PUBLIC_KEY.to_owned(), FORWARD_AGENT_PRIVATE_KEY.to_owned())?))
-            .server_event_tx(Arc::new(server_event_tx));
+            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.rsa_dir(), USER_AGENT_PUBLIC_KEY.to_owned(), USER_PROXY_PRIVATE_KEY.to_owned())?));
+        if let Some(_) = config.forward_server_addresses() {
+            server_state_builder = server_state_builder.forward_rsa_crypto_holder(Some(Arc::new(ProxyRsaCryptoHolder::new(config.forward_rsa_dir(), FORWARD_PROXY_PUBLIC_KEY.to_owned(), FORWARD_AGENT_PRIVATE_KEY.to_owned())?)))
+        }
+        server_state_builder.server_event_tx(Arc::new(server_event_tx));
         Ok((
             Self {
                 server_state: server_state_builder.build()?,
