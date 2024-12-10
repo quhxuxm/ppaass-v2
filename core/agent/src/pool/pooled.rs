@@ -71,7 +71,13 @@ impl Pooled {
             let rsa_crypto_holder = rsa_crypto_holder.clone();
             let pool = pool.clone();
             let checking = checking.clone();
-            Self::start_connection_check_task(config, rsa_crypto_holder, pool, checking);
+            Self::start_connection_check_task(
+                config,
+                rsa_crypto_holder,
+                pool,
+                checking,
+                max_pool_size,
+            );
         }
         Ok(Self {
             pool,
@@ -87,6 +93,7 @@ impl Pooled {
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
         pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
         checking: Arc<AtomicBool>,
+        max_pool_size: usize,
     ) {
         tokio::spawn(async move {
             loop {
@@ -96,7 +103,7 @@ impl Pooled {
                     pool.len()
                 );
                 let (checking_tx, mut checking_rx) =
-                    channel::<PooledProxyConnection<TcpStream>>(pool.len());
+                    channel::<PooledProxyConnection<TcpStream>>(max_pool_size);
                 'checking_single: loop {
                     let proxy_connection = match pool.pop() {
                         Ok(proxy_connection) => proxy_connection,
