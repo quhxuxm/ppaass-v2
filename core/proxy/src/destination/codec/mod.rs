@@ -5,10 +5,10 @@ use crate::destination::codec::raw::RawDestinationTransportCodec;
 use crate::destination::DestinationDataPacket;
 use crate::error::ProxyError;
 use bytes::BytesMut;
+pub use forward::ForwardDestinationTransportControlPacketCodec;
 use ppaass_domain::tunnel::Encryption;
 use ppaass_domain::{AgentDataPacket, ProxyDataPacket};
 use tokio_util::codec::{Decoder, Encoder};
-pub use forward::ForwardDestinationTransportControlPacketCodec;
 pub enum DestinationDataTcpCodec {
     Raw(RawDestinationTransportCodec),
     Forward(ForwardDestinationTransportDataPacketCodec),

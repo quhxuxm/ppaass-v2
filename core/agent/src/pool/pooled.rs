@@ -44,7 +44,7 @@ impl Pooled {
                     config.clone(),
                     max_pool_size,
                 )
-                    .await;
+                .await;
             }
             Some(interval) => {
                 let config = config.clone();
@@ -60,7 +60,7 @@ impl Pooled {
                             config.clone(),
                             max_pool_size,
                         )
-                            .await;
+                        .await;
                         sleep(Duration::from_secs(interval)).await;
                     }
                 });
@@ -82,14 +82,19 @@ impl Pooled {
             checking,
         })
     }
-    fn start_connection_check_task(config: Arc<Config>, rsa_crypto_holder: Arc<AgentRsaCryptoHolder>, pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>, checking: Arc<AtomicBool>) {
+    fn start_connection_check_task(
+        config: Arc<Config>,
+        rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
+        pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
+        checking: Arc<AtomicBool>,
+    ) {
         tokio::spawn(async move {
             loop {
                 checking.store(true, Ordering::Relaxed);
                 debug!(
-                        "Start checking connection pool loop, current pool size: {} ",
-                        pool.len()
-                    );
+                    "Start checking connection pool loop, current pool size: {} ",
+                    pool.len()
+                );
                 let (checking_tx, mut checking_rx) =
                     channel::<PooledProxyConnection<TcpStream>>(pool.len());
                 'checking_single: loop {
@@ -123,7 +128,7 @@ impl Pooled {
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                            .await
+                        .await
                         {
                             Ok(proxy_connection) => proxy_connection,
                             Err(e) => {
@@ -162,7 +167,7 @@ impl Pooled {
                 sleep(Duration::from_secs(
                     *config.proxy_connection_start_check_timer_interval(),
                 ))
-                    .await;
+                .await;
             }
         });
     }
@@ -177,7 +182,7 @@ impl Pooled {
             self.rsa_crypto_holder.clone(),
             self.checking.clone(),
         )
-            .await
+        .await
     }
     async fn create_proxy_tcp_stream(
         config: Arc<Config>,
@@ -188,7 +193,7 @@ impl Pooled {
             Duration::from_secs(*config.proxy_connect_timeout()),
             TcpStream::connect(proxy_addresses.as_slice()),
         )
-            .await
+        .await
         {
             Ok(Ok(proxy_tcp_stream)) => proxy_tcp_stream,
             Ok(Err(e)) => {
@@ -270,7 +275,7 @@ impl Pooled {
                             config.clone(),
                             rsa_crypto_holder.clone(),
                         )
-                            .await
+                        .await
                         {
                             Ok(proxy_connection) => return Ok(proxy_connection),
                             Err(e) => {
@@ -304,7 +309,7 @@ impl Pooled {
             Duration::from_secs(*config.proxy_connection_ping_pong_read_timeout()),
             proxy_ctl_framed.next(),
         )
-            .await
+        .await
         {
             Err(_) => {
                 error!("Proxy connection do ping pong timeout.");

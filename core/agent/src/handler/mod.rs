@@ -114,7 +114,10 @@ pub async fn relay(
             let client_data = match client_item {
                 Ok(client_data) => client_data.freeze(),
                 Err(e) => {
-                    error!(destination_address={format!("{}", &destination_address)},"Fail to read client data: {e:?}");
+                    error!(
+                        destination_address = { format!("{}", &destination_address) },
+                        "Fail to read client data: {e:?}"
+                    );
                     return Some(Err(AgentError::Io(e)));
                 }
             };
@@ -127,7 +130,10 @@ pub async fn relay(
             let proxy_packet_data = match proxy_data_packet {
                 Ok(proxy_packet_data) => proxy_packet_data,
                 Err(e) => {
-                    error!(destination_address={format!("{}", &destination_address)},"Failed to read proxy data: {}", e);
+                    error!(
+                        destination_address = { format!("{}", &destination_address) },
+                        "Failed to read proxy data: {}", e
+                    );
                     return Some(Err(e.into()));
                 }
             };
@@ -137,7 +143,10 @@ pub async fn relay(
                     destination_address,
                     ..
                 } => {
-                    error!(destination_address={format!("{}", &destination_address)},"Invalid kind of proxy data, destination address.");
+                    error!(
+                        destination_address = { format!("{}", &destination_address) },
+                        "Invalid kind of proxy data, destination address."
+                    );
                     Some(Err(AgentError::InvalidProxyDataType.into()))
                 }
             }
