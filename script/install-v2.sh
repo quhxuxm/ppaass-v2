@@ -36,6 +36,7 @@ sudo mkdir /ppaass-v2/build
 sudo mkdir /ppaass-v2/build/resources
 sudo mkdir /ppaass-v2/build/resources/proxy
 sudo mkdir /ppaass-v2/build/resources/proxy/rsa
+sudo mkdir /ppaass-v2/build/resources/proxy/forward_rsa
 # Pull ppaass
 cd /ppaass-v2/sourcecode
 sudo git clone -b main https://github.com/quhxuxm/ppaass-v2.git ppaass-v2
