@@ -45,3 +45,4 @@ chrono = { workspace = true }
 socket2 = { workspace = true, features = ["all"] }
 rand = { workspace = true }
 concurrent-queue = { workspace = true }
+pretty-hex = { workspace = true }

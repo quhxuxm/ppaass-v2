@@ -122,6 +122,6 @@ pub async fn handle_http_client_tcp_stream(
         },
         server_state,
     )
-    .await?;
+        .await?;
     Ok(())
 }

@@ -11,7 +11,7 @@ use ppaass_domain::{AgentControlPacket, AgentDataPacket, ProxyControlPacket, Pro
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt as TokioStreamExt;
 use tokio_util::codec::{BytesCodec, Framed, FramedParts};
-use tracing::error;
+use tracing::{error, trace};
 pub mod http;
 pub mod socks5;
 pub struct TunnelInitHandlerResponse {
@@ -104,6 +104,7 @@ pub async fn relay(
     );
     let (proxy_data_framed_tx, proxy_data_framed_rx) = proxy_data_framed.split();
     if let Some(init_data) = init_data {
+        trace!("Receive http proxy request packet from client (initial data):\n{}\n", pretty_hex::pretty_hex(&init_data));
         client_tcp_framed_tx
             .send(BytesMut::from(init_data.as_ref()))
             .await?;
@@ -121,6 +122,7 @@ pub async fn relay(
                     return Some(Err(AgentError::Io(e)));
                 }
             };
+            trace!("Receive http proxy request packet from client:\n{}\n", pretty_hex::pretty_hex(&client_data));
             Some(Ok(AgentDataPacket::Tcp(client_data.to_vec())))
         })
     };
@@ -138,7 +140,10 @@ pub async fn relay(
                 }
             };
             match proxy_packet_data {
-                ProxyDataPacket::Tcp(proxy_data) => Some(Ok(BytesMut::from_iter(proxy_data))),
+                ProxyDataPacket::Tcp(proxy_data) => {
+                    trace!("Receive http proxy response packet from proxy:\n{}\n", pretty_hex::pretty_hex(&proxy_data));
+                    Some(Ok(BytesMut::from_iter(proxy_data)))
+                }
                 ProxyDataPacket::Udp {
                     destination_address,
                     ..
