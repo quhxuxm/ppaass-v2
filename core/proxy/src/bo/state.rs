@@ -12,7 +12,7 @@ pub struct ServerState {
     #[access(get)]
     rsa_crypto_holder: Arc<ProxyRsaCryptoHolder>,
     #[access(get)]
-    #[builder(setter(strip_option))]
+    #[builder(setter(strip_option), default)]
     forward_rsa_crypto_holder: Option<Arc<ProxyRsaCryptoHolder>>,
     #[access(get)]
     server_event_tx: Arc<Sender<ProxyServerEvent>>,
