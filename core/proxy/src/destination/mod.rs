@@ -62,7 +62,7 @@ impl DestinationTransport {
             Duration::from_secs(*server_state.config().dst_connect_timeout()),
             TcpStream::connect(dst_socket_addresses.as_slice()),
         )
-        .await
+            .await
         {
             Ok(Ok(dst_tcp_stream)) => dst_tcp_stream,
             Ok(Err(e)) => {
@@ -104,7 +104,7 @@ impl DestinationTransport {
         dest_socket.set_write_timeout(Some(Duration::from_secs(
             *server_state.config().dst_write_timeout(),
         )))?;
-
+        dest_socket.set_linger(None)?;
         let destination_framed = match server_state.config().forward_server_addresses() {
             None => Framed::with_capacity(
                 dst_tcp_stream,
@@ -158,7 +158,6 @@ impl DestinationTransport {
                 )
             }
         };
-
         Ok(DestinationTransport::Tcp {
             destination_address: dst_address.clone(),
             destination_framed,
@@ -176,7 +175,6 @@ impl DestinationTransport {
             destination_udp_socket: dst_udp_socket,
         })
     }
-
     // fn convert_addresses(addresses: &[UnifiedAddress]) -> Vec<SocketAddr> {
     //     addresses
     //         .iter()
@@ -187,7 +185,6 @@ impl DestinationTransport {
     //         .flatten()
     //         .collect()
     // }
-
     pub fn split(self) -> (DestinationTransportWrite, DestinationTransportRead) {
         match self {
             DestinationTransport::Tcp {
