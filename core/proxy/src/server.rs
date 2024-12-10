@@ -31,9 +31,18 @@ impl ProxyServer {
         let mut server_state_builder = ServerStateBuilder::default();
         let mut server_state_builder = server_state_builder
             .config(config.clone())
-            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.rsa_dir(), USER_AGENT_PUBLIC_KEY.to_owned(), USER_PROXY_PRIVATE_KEY.to_owned())?));
+            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(
+                config.rsa_dir(),
+                USER_AGENT_PUBLIC_KEY.to_owned(),
+                USER_PROXY_PRIVATE_KEY.to_owned(),
+            )?));
         if let Some(_) = config.forward_server_addresses() {
-            server_state_builder = server_state_builder.forward_rsa_crypto_holder(Some(Arc::new(ProxyRsaCryptoHolder::new(config.forward_rsa_dir(), FORWARD_PROXY_PUBLIC_KEY.to_owned(), FORWARD_AGENT_PRIVATE_KEY.to_owned())?)))
+            server_state_builder =
+                server_state_builder.forward_rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(
+                    config.forward_rsa_dir(),
+                    FORWARD_PROXY_PUBLIC_KEY.to_owned(),
+                    FORWARD_AGENT_PRIVATE_KEY.to_owned(),
+                )?))
         }
         server_state_builder.server_event_tx(Arc::new(server_event_tx));
         Ok((
@@ -83,7 +92,7 @@ impl ProxyServer {
                             tunnel_init_request,
                             server_state.clone(),
                         )
-                            .await
+                        .await
                         {
                             Ok(tunnel_init_result) => tunnel_init_result,
                             Err(e) => {
@@ -104,7 +113,7 @@ impl ProxyServer {
                             },
                             server_state,
                         )
-                            .await
+                        .await
                         {
                             error!(
                                 agent_socket_address = { format!("{agent_socket_address}") },
@@ -194,7 +203,7 @@ impl ProxyServer {
             self.server_state.server_event_tx(),
             ProxyServerEvent::ServerStartup,
         )
-            .await;
+        .await;
         Ok(server_event_rx)
     }
 }
