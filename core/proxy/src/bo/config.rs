@@ -25,6 +25,8 @@ pub struct Config {
     agent_buffer_size: usize,
     #[access(get(ty(&std::path::Path)))]
     rsa_dir: PathBuf,
+    #[access(get(ty(&std::path::Path)))]
+    forward_rsa_dir: PathBuf,
     #[access(get(ty(&str)))]
     max_log_level: String,
     #[access(get)]
@@ -57,6 +59,7 @@ impl Default for Config {
             agent_buffer_size: 1024 * 1024 * 8,
             max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/rsa"),
+            forward_rsa_dir: PathBuf::from("/resources/forward_rsa"),
             agent_connection_write_timeout: 20,
             agent_connection_read_timeout: 20,
             agent_connection_tcp_keepalive: false,

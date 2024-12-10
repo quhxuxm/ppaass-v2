@@ -2,7 +2,7 @@ use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::codec::ControlPacketCodec;
-use crate::crypto::{ProxyForwardRsaCryptoHolder, ProxyRsaCryptoHolder};
+use crate::crypto::ProxyRsaCryptoHolder;
 use crate::error::ProxyError;
 use crate::handler::{RelayStartRequest, TunnelInitResult};
 use crate::{handler, publish_server_event};
@@ -18,6 +18,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
+const USER_AGENT_PUBLIC_KEY: &str = "AgentPublicKey.pem";
+const USER_PROXY_PRIVATE_KEY: &str = "ProxyPrivateKey.pem";
+const FORWARD_AGENT_PRIVATE_KEY: &str = "AgentPrivateKey.pem";
+const FORWARD_PROXY_PUBLIC_KEY: &str = "ProxyPublicKey.pem";
 pub struct ProxyServer {
     server_state: ServerState,
 }
@@ -27,8 +31,8 @@ impl ProxyServer {
         let mut server_state_builder = ServerStateBuilder::default();
         server_state_builder
             .config(config.clone())
-            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.clone())?))
-            .forward_rsa_crypto_holder(Arc::new(ProxyForwardRsaCryptoHolder::new(config)?))
+            .rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.rsa_dir(), USER_AGENT_PUBLIC_KEY.to_owned(), USER_PROXY_PRIVATE_KEY.to_owned())?))
+            .forward_rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(config.forward_rsa_dir(), FORWARD_PROXY_PUBLIC_KEY.to_owned(), FORWARD_AGENT_PRIVATE_KEY.to_owned())?))
             .server_event_tx(Arc::new(server_event_tx));
         Ok((
             Self {
@@ -77,7 +81,7 @@ impl ProxyServer {
                             tunnel_init_request,
                             server_state.clone(),
                         )
-                        .await
+                            .await
                         {
                             Ok(tunnel_init_result) => tunnel_init_result,
                             Err(e) => {
@@ -98,7 +102,7 @@ impl ProxyServer {
                             },
                             server_state,
                         )
-                        .await
+                            .await
                         {
                             error!(
                                 agent_socket_address = { format!("{agent_socket_address}") },
@@ -188,7 +192,7 @@ impl ProxyServer {
             self.server_state.server_event_tx(),
             ProxyServerEvent::ServerStartup,
         )
-        .await;
+            .await;
         Ok(server_event_rx)
     }
 }
