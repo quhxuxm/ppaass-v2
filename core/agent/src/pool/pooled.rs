@@ -2,7 +2,7 @@ use crate::bo::config::Config;
 use crate::codec::ControlPacketCodec;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
-use crate::pool::{parse_proxy_address, PooledProxyConnection};
+use crate::pool::{resolve_proxy_address, PooledProxyConnection};
 use chrono::Utc;
 use concurrent_queue::{ConcurrentQueue, PopError, PushError};
 use futures_util::{SinkExt, StreamExt};
@@ -32,7 +32,7 @@ impl Pooled {
         max_pool_size: usize,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
-        let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
+        let proxy_addresses = Arc::new(resolve_proxy_address(&config)?);
         let pool = Arc::new(ConcurrentQueue::bounded(max_pool_size));
         let proxy_addresses = proxy_addresses.clone();
         let checking = Arc::new(AtomicBool::new(false));
@@ -196,9 +196,10 @@ impl Pooled {
         proxy_addresses: Arc<Vec<SocketAddr>>,
         proxy_connection_tx: Sender<PooledProxyConnection<TcpStream>>,
     ) -> Result<(), AgentError> {
+        let random_proxy_addr_index = rand::random::<usize>() % proxy_addresses.len();
         let proxy_tcp_stream = match timeout(
             Duration::from_secs(*config.proxy_connect_timeout()),
-            TcpStream::connect(proxy_addresses.as_slice()),
+            TcpStream::connect(&proxy_addresses[random_proxy_addr_index]),
         )
         .await
         {

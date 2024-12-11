@@ -4,19 +4,20 @@ use crate::error::AgentError;
 pub use crate::pool::connection::PooledProxyConnection;
 use crate::pool::pooled::Pooled;
 use crate::pool::unpooled::UnPooled;
-use std::net::SocketAddr;
-use std::str::FromStr;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 use tokio::net::TcpStream;
 mod connection;
 mod pooled;
 mod unpooled;
-fn parse_proxy_address(config: &Config) -> Result<Vec<SocketAddr>, AgentError> {
+fn resolve_proxy_address(config: &Config) -> Result<Vec<SocketAddr>, AgentError> {
     let proxy_addresses = config
         .proxy_addresses()
         .iter()
-        .filter_map(|addr| SocketAddr::from_str(addr).ok())
+        .filter_map(|addr| Some(addr.to_socket_addrs().ok()?))
+        .flatten()
         .collect::<Vec<SocketAddr>>();
+
     Ok(proxy_addresses)
 }
 pub enum ProxyConnectionPool {

@@ -2,7 +2,7 @@
 use crate::bo::config::Config;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
-use crate::pool::{parse_proxy_address, PooledProxyConnection};
+use crate::pool::{resolve_proxy_address, PooledProxyConnection};
 use rand::random;
 use socket2::{Domain, Protocol, SockRef, Socket, TcpKeepalive, Type};
 use std::net::SocketAddr;
@@ -21,7 +21,7 @@ impl UnPooled {
         config: Arc<Config>,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<Self, AgentError> {
-        let proxy_addresses = Arc::new(parse_proxy_address(&config)?);
+        let proxy_addresses = Arc::new(resolve_proxy_address(&config)?);
         Ok(Self {
             config,
             proxy_addresses,
@@ -32,9 +32,10 @@ impl UnPooled {
         &self,
     ) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         debug!("Create un-pooled proxy connection");
+        let random_proxy_addr_index = random::<usize>() % self.proxy_addresses.len();
         let proxy_tcp_stream = match timeout(
             Duration::from_secs(*self.config.proxy_connect_timeout()),
-            TcpStream::connect(self.proxy_addresses.as_slice()),
+            TcpStream::connect(self.proxy_addresses[random_proxy_addr_index]),
         )
         .await
         {
