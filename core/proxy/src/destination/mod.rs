@@ -58,11 +58,12 @@ impl DestinationTransport {
                     .flatten()
                     .collect(),
             };
+        let random_dst_addr_index = rand::random::<usize>() % dst_socket_addresses.len();
         let dst_tcp_stream = match timeout(
             Duration::from_secs(*server_state.config().dst_connect_timeout()),
-            TcpStream::connect(dst_socket_addresses.as_slice()),
+            TcpStream::connect(&dst_socket_addresses[random_dst_addr_index]),
         )
-            .await
+        .await
         {
             Ok(Ok(dst_tcp_stream)) => dst_tcp_stream,
             Ok(Err(e)) => {
@@ -121,7 +122,11 @@ impl DestinationTransport {
                     dst_tcp_stream,
                     ForwardDestinationTransportControlPacketCodec::new(
                         forward_auth_token.clone(),
-                        server_state.forward_rsa_crypto_holder().clone().ok_or(ProxyError::RsaCryptoNotExist("Forward proxy rsa crypto holder not initialized".to_string()))?,
+                        server_state.forward_rsa_crypto_holder().clone().ok_or(
+                            ProxyError::RsaCryptoNotExist(
+                                "Forward proxy rsa crypto holder not initialized".to_string(),
+                            ),
+                        )?,
                     ),
                     *server_state.config().dst_buffer_size(),
                 );
