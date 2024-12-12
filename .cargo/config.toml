@@ -1,6 +1,6 @@
 #[target.x86_64-pc-windows-gnu]
-#linker = "C:\\Software\\msys64\\ucrt64\\bin\\gcc.exe"
-#ar = "C:\\Software\\msys64\\ucrt64\\bin\\ar.exe"
+#linker = "C:\\Software\\msys64\\mingw64\\bin\\gcc.exe"
+#ar = "C:\\Software\\msys64\\mingw64\\bin\\ar.exe"
 #[http]
 #proxy = "http://127.0.0.1:10080"
 #[https]
