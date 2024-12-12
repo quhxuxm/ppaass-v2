@@ -34,8 +34,8 @@ pub enum AgentError {
     ProxyConnectionExhausted,
     #[error("Invalid proxy data type")]
     InvalidProxyDataType,
-    #[error("Proxy connection not health")]
-    UnhealthyProxyConnection,
+    #[error("Proxy connection ping pong timeout")]
+    ProxyConnectionPingPongTimeout,
     #[error(transparent)]
     AddrParse(#[from] AddrParseError),
     #[error("Unknown error happen: {0}")]

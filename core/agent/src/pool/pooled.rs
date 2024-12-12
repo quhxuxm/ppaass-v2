@@ -43,6 +43,7 @@ impl Pooled {
                     proxy_addresses.clone(),
                     config.clone(),
                     max_pool_size,
+                    checking.clone(),
                 )
                 .await;
             }
@@ -51,14 +52,21 @@ impl Pooled {
                 let interval = *interval;
                 let pool = pool.clone();
                 let proxy_addresses = proxy_addresses.clone();
+                let checking = checking.clone();
                 tokio::spawn(async move {
                     loop {
+                        if checking.load(Ordering::Relaxed) {
+                            debug!("Cancel filling pool because of checking on pool in parallel.");
+                            sleep(Duration::from_secs(interval)).await;
+                            continue;
+                        }
                         debug!("Starting connection pool auto filling loop.");
                         Self::fill_pool(
                             pool.clone(),
                             proxy_addresses.clone(),
                             config.clone(),
                             max_pool_size,
+                            checking.clone(),
                         )
                         .await;
                         sleep(Duration::from_secs(interval)).await;
@@ -266,8 +274,14 @@ impl Pooled {
                 Err(PopError::Empty) => {
                     debug!("No proxy connection available, current pool size: {current_pool_size}");
                     if !checking.load(Ordering::Relaxed) {
-                        Self::fill_pool(pool, proxy_addresses.clone(), config.clone(), pool_size)
-                            .await;
+                        Self::fill_pool(
+                            pool,
+                            proxy_addresses.clone(),
+                            config.clone(),
+                            pool_size,
+                            checking.clone(),
+                        )
+                        .await;
                     }
                     sleep(Duration::from_millis(2000)).await;
                     continue;
@@ -320,7 +334,7 @@ impl Pooled {
         {
             Err(_) => {
                 error!("Proxy connection do ping pong timeout.");
-                return Err(AgentError::UnhealthyProxyConnection);
+                return Err(AgentError::ProxyConnectionPingPongTimeout);
             }
             Ok(None) => {
                 error!("Proxy connection closed already.");
@@ -354,15 +368,20 @@ impl Pooled {
         proxy_addresses: Arc<Vec<SocketAddr>>,
         config: Arc<Config>,
         max_pool_size: usize,
+        checking: Arc<AtomicBool>,
     ) {
+        if checking.load(Ordering::Relaxed) {
+            debug!("Cancel filling proxy connection pool, because of checking happen in parallel.");
+            return;
+        }
         if pool.len() == max_pool_size {
-            debug!("Filling proxy connection pool, no need to start filling task(outside task).");
+            debug!("Cancel filling proxy connection pool, no need to start filling task(outside task).");
             return;
         }
         tokio::spawn(async move {
             if pool.len() == max_pool_size {
                 debug!(
-                    "Filling proxy connection pool, no need to start filling task(inside task)."
+                    "Cancel filling proxy connection pool, no need to start filling task(inside task)."
                 );
                 return;
             }
