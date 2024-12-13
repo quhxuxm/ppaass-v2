@@ -234,9 +234,11 @@ impl Pooled {
         proxy_connection_tx: Sender<PooledProxyConnection<TcpStream>>,
     ) -> Result<(), AgentError> {
         let random_proxy_addr_index = rand::random::<usize>() % proxy_addresses.len();
+        let proxy_address = &proxy_addresses[random_proxy_addr_index];
+        debug!("Creating proxy tcp stream on: {proxy_address}");
         let proxy_tcp_stream = match timeout(
             Duration::from_secs(*config.proxy_connect_timeout()),
-            TcpStream::connect(&proxy_addresses[random_proxy_addr_index]),
+            TcpStream::connect(proxy_address),
         )
             .await
         {
@@ -312,7 +314,7 @@ impl Pooled {
                         filling.clone(),
                     )
                         .await;
-                    sleep(Duration::from_millis(2000)).await;
+                    sleep(Duration::from_secs(*config.proxy_connection_retake_interval())).await;
                     continue;
                 }
                 Ok(proxy_connection) => {

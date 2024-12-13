@@ -36,6 +36,8 @@ pub struct Config {
     #[access(get)]
     proxy_connection_pool_size: Option<usize>,
     #[access(get)]
+    proxy_connection_retake_interval: u64,
+    #[access(get)]
     proxy_connection_start_check_timer: bool,
     #[access(get)]
     proxy_connection_start_check_timer_interval: u64,
@@ -91,6 +93,7 @@ impl Default for Config {
             proxy_connection_start_check_timer_interval: 120,
             proxy_connection_max_lifetime: 300,
             proxy_connection_ping_pong_read_timeout: 10,
+            proxy_connection_retake_interval: 1,
         }
     }
 }
