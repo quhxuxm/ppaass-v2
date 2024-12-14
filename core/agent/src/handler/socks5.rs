@@ -40,10 +40,12 @@ pub async fn handle_socks5_client_tcp_stream(
                 server_state.clone(),
             )
             .await?;
+            debug!("Socks5 client tunnel init success with remote: {proxy_tcp_stream:?}");
             let init_response = Response::new(Reply::Succeeded, init_request.address);
             init_response
                 .write_to_async_stream(&mut client_tcp_stream)
                 .await?;
+            debug!("Socks5 client tunnel init success begin to relay, : {proxy_tcp_stream:?}");
             relay(
                 RelayRequest {
                     client_tcp_stream,
