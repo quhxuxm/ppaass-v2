@@ -86,12 +86,20 @@ pub async fn handle_http_client_tcp_stream(
                 Some(initial_http_request_bytes),
             )
         };
+    debug!(
+        "HTTP proxy begin connect to remote: {}",
+        destination_address
+    );
     let TunnelInitHandlerResponse {
         proxy_tcp_stream,
         agent_encryption,
         proxy_encryption,
         destination_address,
     } = tunnel_init(destination_address, server_state.clone()).await?;
+    debug!(
+        "HTTP proxy connect to remote success: {}",
+        destination_address
+    );
     if initial_http_request_bytes.is_none() {
         //For https proxy
         let http_connect_success_response = Response::new(
@@ -106,6 +114,7 @@ pub async fn handle_http_client_tcp_stream(
             .encode_into_bytes(http_connect_success_response)?;
         client_tcp_stream.write_all(&response_bytes).await?;
     }
+    debug!("HTTP proxy begin to relay: {}", destination_address);
     relay(
         RelayRequest {
             client_tcp_stream,
