@@ -12,6 +12,8 @@ pub enum AgentError {
     ClientTcpConnectionExhausted,
     #[error("Unsupported protocol: socks4")]
     UnsupportedSocksV4Protocol,
+    #[error("Unsupported socks5 command: {0}")]
+    UnsupportedSocksV5Command(String),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]

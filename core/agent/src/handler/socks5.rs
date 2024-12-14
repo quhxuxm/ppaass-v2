@@ -23,6 +23,7 @@ pub async fn handle_socks5_client_tcp_stream(
     debug!("Receive client socks5 handshake init request: {init_request:?}");
     match init_request.command {
         Command::Connect => {
+            debug!("Receive socks5 CONNECT command: {client_tcp_stream:?}");
             let TunnelInitHandlerResponse {
                 proxy_tcp_stream,
                 agent_encryption,
@@ -56,8 +57,16 @@ pub async fn handle_socks5_client_tcp_stream(
             )
             .await?;
         }
-        Command::Bind => {}
-        Command::UdpAssociate => {}
+        Command::Bind => {
+            debug!("Receive socks5 BIND command: {client_tcp_stream:?}");
+            return Err(AgentError::UnsupportedSocksV5Command("BIND".to_string()));
+        }
+        Command::UdpAssociate => {
+            debug!("Receive socks5 UDP ASSOCIATE command: {client_tcp_stream:?}");
+            return Err(AgentError::UnsupportedSocksV5Command(
+                "UDP_ASSOCIATE".to_string(),
+            ));
+        }
     }
     Ok(())
 }
