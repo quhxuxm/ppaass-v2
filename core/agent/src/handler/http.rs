@@ -29,27 +29,22 @@ pub async fn handle_http_client_tcp_stream(
     let mut request_decode_buf = Vec::new();
     let http_request = loop {
         let mut request_stream_read_buf = [0u8; HTTP_REQUEST_BUF_LEN];
-        let size = client_tcp_stream.read(&mut request_stream_read_buf).await?;
-        if size >= HTTP_REQUEST_BUF_LEN {
-            request_decode_buf.extend(request_stream_read_buf);
-            continue;
-        } else {
-            request_decode_buf.extend(request_stream_read_buf);
-            let request_decode_buf_read = request_decode_buf.reader();
-            let request = match request_decoder.decode_exact(request_decode_buf_read) {
-                Ok(request) => request,
-                Err(e) => match e.kind() {
-                    ErrorKind::IncompleteDecoding => {
-                        continue;
-                    }
-                    _ => {
-                        error!("Fail to decode http request: {}", e);
-                        return Err(e.into());
-                    }
-                },
-            };
-            break request;
-        }
+        client_tcp_stream.read(&mut request_stream_read_buf).await?;
+        request_decode_buf.extend(request_stream_read_buf);
+        let request_decode_buf_read = request_decode_buf.reader();
+        let request = match request_decoder.decode_exact(request_decode_buf_read) {
+            Ok(request) => request,
+            Err(e) => match e.kind() {
+                ErrorKind::IncompleteDecoding => {
+                    continue;
+                }
+                _ => {
+                    error!("Fail to decode http request: {}", e);
+                    return Err(e.into());
+                }
+            },
+        };
+        break request;
     };
     let request_method = http_request.method().to_string();
     let (destination_address, initial_http_request_bytes) =
@@ -122,6 +117,6 @@ pub async fn handle_http_client_tcp_stream(
         },
         server_state,
     )
-        .await?;
+    .await?;
     Ok(())
 }
