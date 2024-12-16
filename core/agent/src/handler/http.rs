@@ -29,8 +29,8 @@ pub async fn handle_http_client_tcp_stream(
     let mut request_decode_buf = Vec::new();
     let http_request = loop {
         let mut request_stream_read_buf = [0u8; HTTP_REQUEST_BUF_LEN];
-        client_tcp_stream.read(&mut request_stream_read_buf).await?;
-        request_decode_buf.extend(request_stream_read_buf);
+        let read_amount = client_tcp_stream.read(&mut request_stream_read_buf).await?;
+        request_decode_buf.extend(&request_stream_read_buf[..read_amount]);
         let request_decode_buf_read = request_decode_buf.reader();
         let request = match request_decoder.decode_exact(request_decode_buf_read) {
             Ok(request) => request,
@@ -126,6 +126,6 @@ pub async fn handle_http_client_tcp_stream(
         },
         server_state,
     )
-    .await?;
+        .await?;
     Ok(())
 }
