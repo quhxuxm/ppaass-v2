@@ -153,7 +153,7 @@ impl Pooled {
                     tokio::spawn(async move {
                         let proxy_connection = match Self::check_proxy_connection(
                             proxy_connection,
-                            config.clone(),
+                            &config,
                             rsa_crypto_holder.clone(),
                         )
                         .await
@@ -264,6 +264,8 @@ impl Pooled {
             })?;
         Ok(())
     }
+
+    /// The concrete take proxy connection implementation
     async fn concrete_take_proxy_connection(
         pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
@@ -302,11 +304,12 @@ impl Pooled {
                 Ok(proxy_connection) => {
                     debug!("Proxy connection available, current pool size before take: {current_pool_size}");
                     if !proxy_connection.need_check() {
+                        debug!("No need to do proxy connection check: {proxy_connection:?}");
                         return Ok(proxy_connection);
                     } else {
                         match Self::check_proxy_connection(
                             proxy_connection,
-                            config.clone(),
+                            &config,
                             rsa_crypto_holder.clone(),
                         )
                         .await
@@ -326,11 +329,10 @@ impl Pooled {
     /// Check the proxy connection with sending a ping-pong messasge between agent and proxy
     async fn check_proxy_connection(
         proxy_connection: PooledProxyConnection<TcpStream>,
-        config: Arc<Config>,
+        config: &Config,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
     ) -> Result<PooledProxyConnection<TcpStream>, AgentError> {
         debug!("Checking proxy connection : {proxy_connection:?}");
-        let config = config.clone();
         let rsa_crypto_holder = rsa_crypto_holder.clone();
         let mut proxy_ctl_framed = Framed::new(
             proxy_connection,

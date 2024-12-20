@@ -5,6 +5,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+/// Pooled proxy connection
+/// T is the underline async read and write
 #[derive(Debug)]
 pub struct PooledProxyConnection<T>
 where
