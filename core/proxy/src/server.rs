@@ -36,7 +36,7 @@ impl ProxyServer {
                 USER_AGENT_PUBLIC_KEY.to_owned(),
                 USER_PROXY_PRIVATE_KEY.to_owned(),
             )?));
-        if let Some(_) = config.forward_server_addresses() {
+        if config.forward_server_addresses().is_some() {
             server_state_builder =
                 server_state_builder.forward_rsa_crypto_holder(Arc::new(ProxyRsaCryptoHolder::new(
                     config.forward_rsa_dir(),

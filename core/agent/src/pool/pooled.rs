@@ -18,15 +18,24 @@ use tokio::sync::mpsc::{channel, Sender};
 use tokio::time::{sleep, timeout};
 use tokio_util::codec::{Framed, FramedParts};
 use tracing::{debug, error};
+
+/// The connection pool for proxy connection.
 pub struct Pooled {
+    /// The pool to store the proxy connection
     pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
+    /// The configuration
     config: Arc<Config>,
+    /// The proxy addresses
     proxy_addresses: Arc<Vec<SocketAddr>>,
+    /// The max pool size
     max_pool_size: usize,
+    /// The rsa crypto holder used to store the rsa crypto
     rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
+    /// If the filling process is happening
     filling: Arc<AtomicBool>,
 }
 impl Pooled {
+    /// Create the proxy connection pool
     pub async fn new(
         config: Arc<Config>,
         max_pool_size: usize,
@@ -91,6 +100,8 @@ impl Pooled {
             filling,
         })
     }
+
+    /// Start the task to check connection activity
     fn start_connection_check_task(
         config: Arc<Config>,
         rsa_crypto_holder: Arc<AgentRsaCryptoHolder>,
@@ -311,6 +322,8 @@ impl Pooled {
             }
         }
     }
+
+    /// Check the proxy connection with sending a ping-pong messasge between agent and proxy
     async fn check_proxy_connection(
         proxy_connection: PooledProxyConnection<TcpStream>,
         config: Arc<Config>,
