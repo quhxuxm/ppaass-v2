@@ -14,7 +14,7 @@ fn resolve_proxy_address(config: &Config) -> Result<Vec<SocketAddr>, AgentError>
     let proxy_addresses = config
         .proxy_addresses()
         .iter()
-        .filter_map(|addr| Some(addr.to_socket_addrs().ok()?))
+        .filter_map(|addr| addr.to_socket_addrs().ok())
         .flatten()
         .collect::<Vec<SocketAddr>>();
 
