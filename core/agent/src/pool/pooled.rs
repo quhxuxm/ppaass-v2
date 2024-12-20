@@ -378,6 +378,8 @@ impl Pooled {
             }
         }
     }
+
+    /// Fill the pool with proxy connection
     async fn fill_pool(
         pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
         proxy_addresses: Arc<Vec<SocketAddr>>,
