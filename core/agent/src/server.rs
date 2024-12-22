@@ -54,7 +54,9 @@ impl AgentServer {
                 handle_socks5_client_tcp_stream(client_tcp_stream, server_state).await
             }
             SOCKS4_VERSION => Err(AgentError::UnsupportedSocksV4Protocol),
-            _ => handle_http_client_tcp_stream(client_tcp_stream, server_state).await,
+            b'G' | b'g' | b'H' | b'h' | b'P' | b'p' | b'D' | b'd' | b'C' | b'c' | b'O' | b'o'
+            | b'T' | b't' => handle_http_client_tcp_stream(client_tcp_stream, server_state).await,
+            protocol => Err(AgentError::Unknown(format!("Unknown protocol: {protocol}"))),
         }
     }
     async fn concrete_start_server(server_state: ServerState) -> Result<(), AgentError> {
