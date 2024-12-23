@@ -83,6 +83,12 @@ impl DestinationTransport {
             }
         };
         let dest_socket = SockRef::from(&dst_tcp_stream);
+        if let Some(buf_size) = server_state.config().dst_socket_send_buffer_size() {
+            dest_socket.set_send_buffer_size(*buf_size)?;
+        }
+        if let Some(buf_size) = server_state.config().dst_socket_receive_buffer_size() {
+            dest_socket.set_recv_buffer_size(*buf_size)?;
+        }
         dest_socket.set_reuse_address(true)?;
         if keepalive {
             dest_socket.set_keepalive(true)?;
@@ -99,12 +105,12 @@ impl DestinationTransport {
             dest_socket.set_tcp_keepalive(&keepalive)?;
         }
         dest_socket.set_nodelay(true)?;
-        dest_socket.set_read_timeout(Some(Duration::from_secs(
-            *server_state.config().dst_read_timeout(),
-        )))?;
-        dest_socket.set_write_timeout(Some(Duration::from_secs(
-            *server_state.config().dst_write_timeout(),
-        )))?;
+        if let Some(read_timeout) = server_state.config().dst_read_timeout() {
+            dest_socket.set_read_timeout(Some(Duration::from_secs(*read_timeout)))?;
+        }
+        if let Some(write_timeout) = server_state.config().dst_write_timeout() {
+            dest_socket.set_write_timeout(Some(Duration::from_secs(*write_timeout)))?;
+        }
         dest_socket.set_linger(None)?;
         let destination_framed = match server_state.config().forward_server_addresses() {
             None => Framed::with_capacity(

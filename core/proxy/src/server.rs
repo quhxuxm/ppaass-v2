@@ -150,6 +150,12 @@ impl ProxyServer {
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), server_port);
         let server_listener = TcpListener::bind(&server_socket_addr).await?;
         let server_socket = SockRef::from(&server_listener);
+        if let Some(buf_size) = server_state.config().agent_socket_receive_buffer_size() {
+            server_socket.set_recv_buffer_size(*buf_size)?;
+        }
+        if let Some(buf_size) = server_state.config().agent_socket_send_buffer_size() {
+            server_socket.set_send_buffer_size(*buf_size)?;
+        }
         server_socket.set_nodelay(true)?;
         server_socket.set_reuse_address(true)?;
         if *server_state.config().agent_connection_tcp_keepalive() {
@@ -169,12 +175,12 @@ impl ProxyServer {
             server_socket.set_tcp_keepalive(&keepalive)?;
         }
         server_socket.set_linger(None)?;
-        server_socket.set_read_timeout(Some(Duration::from_secs(
-            *server_state.config().agent_connection_read_timeout(),
-        )))?;
-        server_socket.set_write_timeout(Some(Duration::from_secs(
-            *server_state.config().agent_connection_write_timeout(),
-        )))?;
+        if let Some(read_timeout) = server_state.config().agent_connection_read_timeout() {
+            server_socket.set_read_timeout(Some(Duration::from_secs(*read_timeout)))?;
+        }
+        if let Some(write_timeout) = server_state.config().agent_connection_write_timeout() {
+            server_socket.set_write_timeout(Some(Duration::from_secs(*write_timeout)))?;
+        }
         loop {
             let (agent_tcp_stream, agent_socket_addr) = server_listener.accept().await?;
             debug!(
