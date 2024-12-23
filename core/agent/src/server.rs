@@ -1,6 +1,6 @@
-use crate::bo::config::Config;
 use crate::bo::event::AgentServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
+use crate::config::Config;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
 use crate::handler::http::handle_http_client_tcp_stream;

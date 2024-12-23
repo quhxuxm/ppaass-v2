@@ -1,4 +1,4 @@
-use crate::bo::config::Config;
+use crate::config::Config;
 use chrono::{DateTime, Utc};
 use std::io::Error;
 use std::pin::Pin;

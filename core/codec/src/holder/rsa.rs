@@ -45,5 +45,3 @@ where
         RsaCryptoHolder::get_rsa_crypto(*self, auth_token)
     }
 }
-
-

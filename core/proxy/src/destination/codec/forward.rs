@@ -14,10 +14,7 @@ pub struct ForwardDestinationTransportControlPacketCodec {
     proxy_control_packet_decoder: ProxyControlPacketDecoder<ProxyRsaCryptoHolder>,
 }
 impl ForwardDestinationTransportControlPacketCodec {
-    pub fn new(
-        forward_auth_token: String,
-        rsa_crypto_holder: Arc<ProxyRsaCryptoHolder>,
-    ) -> Self {
+    pub fn new(forward_auth_token: String, rsa_crypto_holder: Arc<ProxyRsaCryptoHolder>) -> Self {
         Self {
             agent_control_packet_encoder: AgentControlPacketEncoder::new(rsa_crypto_holder.clone()),
             proxy_control_packet_decoder: ProxyControlPacketDecoder::new(

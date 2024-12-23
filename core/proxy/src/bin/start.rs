@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-use proxy::bo::command::CommandArgs;
-use proxy::bo::config::Config;
+use proxy::command::CommandArgs;
+use proxy::config::Config;
 use proxy::server::ProxyServer;
 use std::fs::read_to_string;
 use std::path::PathBuf;

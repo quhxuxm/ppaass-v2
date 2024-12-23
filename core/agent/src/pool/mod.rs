@@ -1,4 +1,4 @@
-use crate::bo::config::Config;
+use crate::config::Config;
 use crate::crypto::AgentRsaCryptoHolder;
 use crate::error::AgentError;
 pub use crate::pool::connection::PooledProxyConnection;

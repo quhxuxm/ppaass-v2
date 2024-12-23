@@ -1,5 +1,5 @@
-use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
+use crate::config::Config;
 use crate::crypto::ProxyRsaCryptoHolder;
 use accessory::Accessors;
 use derive_builder::Builder;

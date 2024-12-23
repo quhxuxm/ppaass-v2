@@ -1,5 +1,5 @@
-use agent::bo::command::CommandArgs;
-use agent::bo::config::Config;
+use agent::command::CommandArgs;
+use agent::config::Config;
 use agent::server::AgentServer;
 use anyhow::Result;
 use clap::Parser;

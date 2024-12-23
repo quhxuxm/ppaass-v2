@@ -1,7 +1,7 @@
-use crate::bo::config::Config;
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::codec::ControlPacketCodec;
+use crate::config::Config;
 use crate::crypto::ProxyRsaCryptoHolder;
 use crate::error::ProxyError;
 use crate::handler::{RelayStartRequest, TunnelInitResult};

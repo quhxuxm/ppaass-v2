@@ -1,4 +1,4 @@
-use crate::bo::config::Config;
+use crate::config::Config;
 use ppaass_codec::error::CodecError;
 use ppaass_codec::RsaCryptoHolder;
 use ppaass_crypto::error::CryptoError;

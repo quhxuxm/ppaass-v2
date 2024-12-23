@@ -9,11 +9,13 @@ use std::sync::Arc;
 use tracing::error;
 pub struct ProxyRsaCryptoHolder {
     cache: Arc<HashMap<String, Arc<RsaCrypto>>>,
-
 }
 impl ProxyRsaCryptoHolder {
-    pub fn new(rsa_dir_path: &Path, public_key_file_name: String,
-               private_key_file_name: String) -> Result<Self, CryptoError> {
+    pub fn new(
+        rsa_dir_path: &Path,
+        public_key_file_name: String,
+        private_key_file_name: String,
+    ) -> Result<Self, CryptoError> {
         let mut cache = HashMap::new();
         let rsa_dir = read_dir(rsa_dir_path)?;
         rsa_dir.for_each(|entry| {

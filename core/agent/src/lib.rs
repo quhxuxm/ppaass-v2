@@ -3,6 +3,8 @@ use tokio::sync::mpsc::Sender;
 use tracing::error;
 pub mod bo;
 pub mod codec;
+pub mod command;
+pub mod config;
 pub mod crypto;
 mod error;
 pub mod handler;
