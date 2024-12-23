@@ -66,12 +66,18 @@ impl UnPooled {
         keepalive.with_retries(*self.config.proxy_connection_tcp_keepalive_retry());
         proxy_socket.set_tcp_keepalive(&keepalive)?;
         proxy_socket.set_nodelay(true)?;
-        proxy_socket.set_read_timeout(Some(Duration::from_secs(
-            *self.config.proxy_connection_read_timeout(),
-        )))?;
-        proxy_socket.set_write_timeout(Some(Duration::from_secs(
-            *self.config.proxy_connection_write_timeout(),
-        )))?;
+        if let Some(buffer_size) = self.config.proxy_socket_receive_buffer_size() {
+            proxy_socket.set_recv_buffer_size(*buffer_size)?;
+        }
+        if let Some(buffer_size) = self.config.proxy_socket_send_buffer_size() {
+            proxy_socket.set_send_buffer_size(*buffer_size)?;
+        }
+        if let Some(timeout) = self.config.proxy_connection_read_timeout() {
+            proxy_socket.set_read_timeout(Some(Duration::from_secs(*timeout)))?;
+        }
+        if let Some(timeout) = self.config.proxy_connection_write_timeout() {
+            proxy_socket.set_write_timeout(Some(Duration::from_secs(*timeout)))?;
+        }
         Ok(PooledProxyConnection::new(
             proxy_tcp_stream,
             self.config.clone(),

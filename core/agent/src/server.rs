@@ -88,12 +88,19 @@ impl AgentServer {
             server_socket.set_tcp_keepalive(&keepalive)?;
         }
         server_socket.set_linger(None)?;
-        server_socket.set_read_timeout(Some(Duration::from_secs(
-            *server_state.config().client_connection_read_timeout(),
-        )))?;
-        server_socket.set_write_timeout(Some(Duration::from_secs(
-            *server_state.config().client_connection_write_timeout(),
-        )))?;
+        if let Some(buffer_size) = server_state.config().client_socket_receive_buffer_size() {
+            server_socket.set_recv_buffer_size(*buffer_size)?;
+        }
+        if let Some(buffer_size) = server_state.config().client_socket_send_buffer_size() {
+            server_socket.set_send_buffer_size(*buffer_size)?;
+        }
+        if let Some(timeout) = server_state.config().client_connection_read_timeout() {
+            server_socket.set_read_timeout(Some(Duration::from_secs(*timeout)))?;
+        }
+        if let Some(timeout) = server_state.config().client_connection_write_timeout() {
+            server_socket.set_write_timeout(Some(Duration::from_secs(*timeout)))?;
+        }
+
         loop {
             let (client_tcp_stream, client_socket_addr) = server_listener.accept().await?;
             let server_state = server_state.clone();

@@ -18,7 +18,6 @@ use tokio::sync::mpsc::{channel, Sender};
 use tokio::time::{sleep, timeout};
 use tokio_util::codec::{Framed, FramedParts};
 use tracing::{debug, error};
-
 /// The connection pool for proxy connection.
 pub struct Pooled {
     /// The pool to store the proxy connection
@@ -249,12 +248,19 @@ impl Pooled {
         proxy_socket.set_tcp_keepalive(&keepalive)?;
         proxy_socket.set_linger(None)?;
         proxy_socket.set_nodelay(true)?;
-        proxy_socket.set_read_timeout(Some(Duration::from_secs(
-            *config.proxy_connection_read_timeout(),
-        )))?;
-        proxy_socket.set_write_timeout(Some(Duration::from_secs(
-            *config.proxy_connection_write_timeout(),
-        )))?;
+        if let Some(buffer_size) = config.proxy_socket_receive_buffer_size() {
+            proxy_socket.set_recv_buffer_size(*buffer_size)?;
+        }
+        if let Some(buffer_size) = config.proxy_socket_send_buffer_size() {
+            proxy_socket.set_send_buffer_size(*buffer_size)?;
+        }
+        if let Some(timeout) = config.proxy_connection_read_timeout() {
+            proxy_socket.set_read_timeout(Some(Duration::from_secs(*timeout)))?;
+        }
+        if let Some(timeout) = config.proxy_connection_write_timeout() {
+            proxy_socket.set_write_timeout(Some(Duration::from_secs(*timeout)))?;
+        }
+
         debug!("Create proxy connection: {proxy_tcp_stream:?}");
         proxy_connection_tx
             .send(PooledProxyConnection::new(proxy_tcp_stream, config))

@@ -26,9 +26,13 @@ pub struct Config {
     #[access(get)]
     client_connection_tcp_keepalive_retry: u32,
     #[access(get)]
-    client_connection_read_timeout: u64,
+    client_connection_read_timeout: Option<u64>,
     #[access(get)]
-    client_connection_write_timeout: u64,
+    client_connection_write_timeout: Option<u64>,
+    #[access(get)]
+    client_socket_receive_buffer_size: Option<usize>,
+    #[access(get)]
+    client_socket_send_buffer_size: Option<usize>,
     #[access(get)]
     client_relay_buffer_size: usize,
     #[access(get)]
@@ -52,9 +56,13 @@ pub struct Config {
     #[access(get)]
     proxy_connect_timeout: u64,
     #[access(get)]
-    proxy_connection_read_timeout: u64,
+    proxy_connection_read_timeout: Option<u64>,
     #[access(get)]
-    proxy_connection_write_timeout: u64,
+    proxy_connection_write_timeout: Option<u64>,
+    #[access(get)]
+    proxy_socket_receive_buffer_size: Option<usize>,
+    #[access(get)]
+    proxy_socket_send_buffer_size: Option<usize>,
     #[access(get)]
     proxy_connection_tcp_keepalive_interval: u64,
     #[access(get)]
@@ -83,17 +91,21 @@ impl Default for Config {
             proxy_connection_check_interval: 60,
             proxy_connection_pool_fill_interval: Some(20),
             proxy_connect_timeout: 20,
-            proxy_connection_read_timeout: 120,
-            proxy_connection_write_timeout: 120,
+            proxy_connection_read_timeout: None,
+            proxy_connection_write_timeout: None,
+            proxy_socket_receive_buffer_size: None,
+            proxy_socket_send_buffer_size: None,
             proxy_connection_tcp_keepalive_interval: 75,
             proxy_connection_tcp_keepalive_time: 7200,
             proxy_connection_tcp_keepalive_retry: 9,
-            client_connection_read_timeout: 120,
-            client_connection_write_timeout: 120,
+            client_connection_read_timeout: None,
+            client_connection_write_timeout: None,
+            client_socket_receive_buffer_size: None,
             proxy_connection_start_check_timer_interval: 120,
             proxy_connection_max_lifetime: 300,
             proxy_connection_ping_pong_read_timeout: 10,
             proxy_connection_retake_interval: 5,
+            client_socket_send_buffer_size: None,
         }
     }
 }
