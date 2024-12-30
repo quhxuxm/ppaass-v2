@@ -99,7 +99,6 @@ impl Pooled {
             filling,
         })
     }
-
     /// Start the task to check connection activity
     fn start_connection_check_task(
         config: Arc<Config>,
@@ -236,16 +235,19 @@ impl Pooled {
             }
         };
         let proxy_socket = SockRef::from(&proxy_tcp_stream);
-        let keepalive = TcpKeepalive::new()
-            .with_interval(Duration::from_secs(
-                *config.proxy_connection_tcp_keepalive_interval(),
-            ))
-            .with_time(Duration::from_secs(
-                *config.proxy_connection_tcp_keepalive_time(),
-            ));
-        #[cfg(target_os = "linux")]
-        keepalive.with_retries(*config.proxy_connection_tcp_keepalive_retry());
-        proxy_socket.set_tcp_keepalive(&keepalive)?;
+        if *config.proxy_connection_tcp_keepalive() {
+            let keepalive = TcpKeepalive::new()
+                .with_interval(Duration::from_secs(
+                    config
+                        .proxy_connection_tcp_keepalive_interval()
+                        .ok_or(AgentError::Unknown("Fail to create proxy connection tcp socket becauause of no keepalive interval provided".to_string()))?,
+                ))
+                .with_time(Duration::from_secs(
+                    config.proxy_connection_tcp_keepalive_time().ok_or(AgentError::Unknown("Fail to create proxy connection tcp socket becauause of no keepalive time provided".to_string()))?
+                ));
+            proxy_socket.set_tcp_keepalive(&keepalive)?;
+        }
+
         proxy_socket.set_linger(None)?;
         proxy_socket.set_nodelay(true)?;
         if let Some(buffer_size) = config.proxy_socket_receive_buffer_size() {
@@ -260,7 +262,6 @@ impl Pooled {
         if let Some(timeout) = config.proxy_connection_write_timeout() {
             proxy_socket.set_write_timeout(Some(Duration::from_secs(*timeout)))?;
         }
-
         debug!("Create proxy connection: {proxy_tcp_stream:?}");
         proxy_connection_tx
             .send(PooledProxyConnection::new(proxy_tcp_stream, config))
@@ -270,7 +271,6 @@ impl Pooled {
             })?;
         Ok(())
     }
-
     /// The concrete take proxy connection implementation
     async fn concrete_take_proxy_connection(
         pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,
@@ -331,7 +331,6 @@ impl Pooled {
             }
         }
     }
-
     /// Check the proxy connection with sending a ping-pong messasge between agent and proxy
     async fn check_proxy_connection(
         proxy_connection: PooledProxyConnection<TcpStream>,
@@ -386,7 +385,6 @@ impl Pooled {
             }
         }
     }
-
     /// Fill the pool with proxy connection
     async fn fill_pool(
         pool: Arc<ConcurrentQueue<PooledProxyConnection<TcpStream>>>,

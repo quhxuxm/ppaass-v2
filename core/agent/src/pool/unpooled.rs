@@ -54,17 +54,20 @@ impl UnPooled {
         };
         let proxy_socket = SockRef::from(&proxy_tcp_stream);
         proxy_socket.set_reuse_address(true)?;
-        proxy_socket.set_keepalive(true)?;
-        let keepalive = TcpKeepalive::new()
-            .with_interval(Duration::from_secs(
-                *self.config.proxy_connection_tcp_keepalive_interval(),
-            ))
-            .with_time(Duration::from_secs(
-                *self.config.proxy_connection_tcp_keepalive_time(),
-            ));
-        #[cfg(target_os = "linux")]
-        keepalive.with_retries(*self.config.proxy_connection_tcp_keepalive_retry());
-        proxy_socket.set_tcp_keepalive(&keepalive)?;
+
+        if *self.config.proxy_connection_tcp_keepalive() {
+            let keepalive = TcpKeepalive::new()
+                .with_interval(Duration::from_secs(
+                    self.config
+                        .proxy_connection_tcp_keepalive_interval()
+                        .ok_or(AgentError::Unknown("Fail to create proxy connection tcp socket becauause of no keepalive interval provided".to_string()))?,
+                ))
+                .with_time(Duration::from_secs(
+                    self.config.proxy_connection_tcp_keepalive_time().ok_or(AgentError::Unknown("Fail to create proxy connection tcp socket becauause of no keepalive time provided".to_string()))?
+                ));
+            proxy_socket.set_tcp_keepalive(&keepalive)?;
+        }
+
         proxy_socket.set_nodelay(true)?;
         if let Some(buffer_size) = self.config.proxy_socket_receive_buffer_size() {
             proxy_socket.set_recv_buffer_size(*buffer_size)?;

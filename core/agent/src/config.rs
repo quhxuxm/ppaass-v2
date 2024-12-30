@@ -24,8 +24,6 @@ pub struct Config {
     #[access(get)]
     client_connection_tcp_keepalive_time: u64,
     #[access(get)]
-    client_connection_tcp_keepalive_retry: u32,
-    #[access(get)]
     client_connection_read_timeout: Option<u64>,
     #[access(get)]
     client_connection_write_timeout: Option<u64>,
@@ -64,11 +62,11 @@ pub struct Config {
     #[access(get)]
     proxy_socket_send_buffer_size: Option<usize>,
     #[access(get)]
-    proxy_connection_tcp_keepalive_interval: u64,
+    proxy_connection_tcp_keepalive: bool,
     #[access(get)]
-    proxy_connection_tcp_keepalive_time: u64,
+    proxy_connection_tcp_keepalive_interval: Option<u64>,
     #[access(get)]
-    proxy_connection_tcp_keepalive_retry: u32,
+    proxy_connection_tcp_keepalive_time: Option<u64>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -82,7 +80,6 @@ impl Default for Config {
             client_connection_tcp_keepalive: false,
             client_connection_tcp_keepalive_interval: 75,
             client_connection_tcp_keepalive_time: 7200,
-            client_connection_tcp_keepalive_retry: 9,
             server_socket_backlog: 1024,
             client_relay_buffer_size: 65536,
             proxy_relay_buffer_size: 65536,
@@ -95,9 +92,9 @@ impl Default for Config {
             proxy_connection_write_timeout: None,
             proxy_socket_receive_buffer_size: None,
             proxy_socket_send_buffer_size: None,
-            proxy_connection_tcp_keepalive_interval: 75,
-            proxy_connection_tcp_keepalive_time: 7200,
-            proxy_connection_tcp_keepalive_retry: 9,
+            proxy_connection_tcp_keepalive: false,
+            proxy_connection_tcp_keepalive_interval: Some(75),
+            proxy_connection_tcp_keepalive_time: Some(7200),
             client_connection_read_timeout: None,
             client_connection_write_timeout: None,
             client_socket_receive_buffer_size: None,
