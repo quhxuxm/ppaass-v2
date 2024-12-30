@@ -2,7 +2,6 @@ mod forward;
 mod raw;
 use crate::destination::codec::forward::ForwardDestinationTransportDataPacketCodec;
 use crate::destination::codec::raw::RawDestinationTransportCodec;
-use crate::destination::DestinationDataPacket;
 use crate::error::ProxyError;
 use bytes::BytesMut;
 pub use forward::ForwardDestinationTransportControlPacketCodec;
@@ -17,7 +16,6 @@ impl DestinationDataTcpCodec {
     pub fn new_raw() -> Self {
         DestinationDataTcpCodec::Raw(RawDestinationTransportCodec::new())
     }
-
     pub fn new_forward(agent_encryption: Encryption, proxy_encryption: Encryption) -> Self {
         DestinationDataTcpCodec::Forward(ForwardDestinationTransportDataPacketCodec::new(
             agent_encryption,
@@ -26,7 +24,7 @@ impl DestinationDataTcpCodec {
     }
 }
 impl Decoder for DestinationDataTcpCodec {
-    type Item = DestinationDataPacket;
+    type Item = BytesMut;
     type Error = ProxyError;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         match self {
@@ -34,14 +32,14 @@ impl Decoder for DestinationDataTcpCodec {
                 let destination_data = raw_codec.decode(src)?;
                 match destination_data {
                     None => Ok(None),
-                    Some(data) => Ok(Some(DestinationDataPacket::Tcp(data.to_vec()))),
+                    Some(data) => Ok(Some(data)),
                 }
             }
             DestinationDataTcpCodec::Forward(forward_codec) => {
                 let destination_data = forward_codec.decode(src)?;
                 match destination_data {
                     None => Ok(None),
-                    Some(ProxyDataPacket::Tcp(data)) => Ok(Some(DestinationDataPacket::Tcp(data))),
+                    Some(ProxyDataPacket::Tcp(data)) => Ok(Some(BytesMut::from_iter(data))),
                     Some(ProxyDataPacket::Udp { .. }) => Err(ProxyError::InvalidData),
                 }
             }

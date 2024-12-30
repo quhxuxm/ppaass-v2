@@ -1,7 +1,7 @@
 use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::ServerState;
 use crate::codec::ControlPacketCodec;
-use crate::destination::DestinationTransport;
+use crate::destination::{new_tcp_destination, new_udp_destination, DestinationDataTcpCodec};
 use crate::error::ProxyError;
 use crate::publish_server_event;
 use futures_util::SinkExt;
@@ -9,14 +9,23 @@ use ppaass_crypto::random_32_bytes;
 use ppaass_domain::address::UnifiedAddress;
 use ppaass_domain::tunnel::{Encryption, TunnelInitRequest, TunnelInitResponse, TunnelType};
 use ppaass_domain::ProxyControlPacket;
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, UdpSocket};
 use tokio_util::codec::{Framed, FramedParts};
-pub struct TunnelInitResult {
-    pub agent_encryption: Encryption,
-    pub proxy_encryption: Encryption,
-    pub destination_transport: DestinationTransport,
-    pub agent_tcp_stream: TcpStream,
-    pub destination_address: UnifiedAddress,
+pub enum TunnelInitResult {
+    Tcp {
+        agent_encryption: Encryption,
+        proxy_encryption: Encryption,
+        destination_tcp_framed: Framed<TcpStream, DestinationDataTcpCodec>,
+        agent_tcp_stream: TcpStream,
+        destination_address: UnifiedAddress,
+    },
+    Udp {
+        agent_encryption: Encryption,
+        proxy_encryption: Encryption,
+        destination_udp_socket: UdpSocket,
+        agent_tcp_stream: TcpStream,
+        destination_address: UnifiedAddress,
+    },
 }
 /// Create tunnel in proxy side
 pub async fn tunnel_init(
@@ -30,36 +39,60 @@ pub async fn tunnel_init(
         dst_address,
         tunnel_type,
     } = tunnel_init_request;
-    let destination_transport = match &tunnel_type {
+    match &tunnel_type {
         TunnelType::Tcp { keepalive } => {
-            DestinationTransport::new_tcp(&dst_address, *keepalive, server_state.clone()).await?
+            let destination_tcp_framed =
+                new_tcp_destination(&dst_address, *keepalive, server_state.clone()).await?;
+            let proxy_encryption = Encryption::Aes(random_32_bytes());
+            publish_server_event(
+                server_state.server_event_tx(),
+                ProxyServerEvent::TunnelInit(dst_address.clone()),
+            )
+            .await;
+            let tunnel_init_response = TunnelInitResponse {
+                proxy_encryption: proxy_encryption.clone(),
+            };
+            let proxy_control_packet =
+                ProxyControlPacket::TunnelInit((auth_token.clone(), tunnel_init_response));
+            agent_control_framed.send(proxy_control_packet).await?;
+            let FramedParts {
+                io: agent_tcp_stream,
+                ..
+            } = agent_control_framed.into_parts();
+            Ok(TunnelInitResult::Tcp {
+                agent_encryption,
+                proxy_encryption,
+                destination_tcp_framed,
+                agent_tcp_stream,
+                destination_address: dst_address,
+            })
         }
         TunnelType::Udp => {
-            DestinationTransport::new_udp(&dst_address, server_state.clone()).await?
+            let destination_udp_socket =
+                new_udp_destination(&dst_address, server_state.clone()).await?;
+            let proxy_encryption = Encryption::Aes(random_32_bytes());
+            publish_server_event(
+                server_state.server_event_tx(),
+                ProxyServerEvent::TunnelInit(dst_address.clone()),
+            )
+            .await;
+            let tunnel_init_response = TunnelInitResponse {
+                proxy_encryption: proxy_encryption.clone(),
+            };
+            let proxy_control_packet =
+                ProxyControlPacket::TunnelInit((auth_token.clone(), tunnel_init_response));
+            agent_control_framed.send(proxy_control_packet).await?;
+            let FramedParts {
+                io: agent_tcp_stream,
+                ..
+            } = agent_control_framed.into_parts();
+            Ok(TunnelInitResult::Udp {
+                agent_encryption,
+                proxy_encryption,
+                destination_udp_socket,
+                agent_tcp_stream,
+                destination_address: dst_address,
+            })
         }
-    };
-
-    let proxy_encryption = Encryption::Aes(random_32_bytes());
-    publish_server_event(
-        server_state.server_event_tx(),
-        ProxyServerEvent::TunnelInit(dst_address.clone()),
-    )
-    .await;
-    let tunnel_init_response = TunnelInitResponse {
-        proxy_encryption: proxy_encryption.clone(),
-    };
-    let proxy_control_packet =
-        ProxyControlPacket::TunnelInit((auth_token.clone(), tunnel_init_response));
-    agent_control_framed.send(proxy_control_packet).await?;
-    let FramedParts {
-        io: agent_tcp_stream,
-        ..
-    } = agent_control_framed.into_parts();
-    Ok(TunnelInitResult {
-        agent_encryption,
-        proxy_encryption,
-        destination_transport,
-        agent_tcp_stream,
-        destination_address: dst_address,
-    })
+    }
 }

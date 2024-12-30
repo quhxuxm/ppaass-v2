@@ -81,13 +81,7 @@ impl ProxyServer {
                         return;
                     }
                     Some(Ok(AgentControlPacket::TunnelInit(tunnel_init_request))) => {
-                        let TunnelInitResult {
-                            agent_encryption,
-                            proxy_encryption,
-                            destination_transport,
-                            agent_tcp_stream,
-                            destination_address,
-                        } = match handler::tunnel_init(
+                        let tunnel_init_result = match handler::tunnel_init(
                             control_framed,
                             tunnel_init_request,
                             server_state.clone(),
@@ -103,22 +97,59 @@ impl ProxyServer {
                                 return;
                             }
                         };
-                        if let Err(e) = handler::start_relay(
-                            agent_tcp_stream,
-                            RelayStartRequest {
+                        match tunnel_init_result {
+                            TunnelInitResult::Tcp {
                                 agent_encryption,
                                 proxy_encryption,
-                                destination_transport,
+                                destination_tcp_framed,
+                                agent_tcp_stream,
                                 destination_address,
-                            },
-                            server_state,
-                        )
-                        .await
-                        {
-                            error!(
-                                agent_socket_address = { format!("{agent_socket_address}") },
-                                "Fail to start relay: {e:?}"
-                            );
+                            } => {
+                                if let Err(e) = handler::start_relay(
+                                    agent_tcp_stream,
+                                    RelayStartRequest::Tcp {
+                                        agent_encryption,
+                                        proxy_encryption,
+                                        destination_tcp_framed,
+                                        destination_address,
+                                    },
+                                    server_state,
+                                )
+                                .await
+                                {
+                                    error!(
+                                        agent_socket_address =
+                                            { format!("{agent_socket_address}") },
+                                        "Fail to start relay tcp data: {e:?}"
+                                    );
+                                }
+                            }
+                            TunnelInitResult::Udp {
+                                agent_encryption,
+                                proxy_encryption,
+                                destination_udp_socket,
+                                agent_tcp_stream,
+                                destination_address,
+                            } => {
+                                if let Err(e) = handler::start_relay(
+                                    agent_tcp_stream,
+                                    RelayStartRequest::Udp {
+                                        agent_encryption,
+                                        proxy_encryption,
+                                        destination_udp_socket,
+                                        destination_address,
+                                    },
+                                    server_state,
+                                )
+                                .await
+                                {
+                                    error!(
+                                        agent_socket_address =
+                                            { format!("{agent_socket_address}") },
+                                        "Fail to start relay udp data: {e:?}"
+                                    );
+                                }
+                            }
                         }
                         return;
                     }
