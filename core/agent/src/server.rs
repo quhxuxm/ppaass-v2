@@ -72,12 +72,20 @@ impl AgentServer {
             server_socket.set_keepalive(true)?;
             let keepalive = TcpKeepalive::new()
                 .with_time(Duration::from_secs(
-                    *server_state.config().client_connection_tcp_keepalive_time(),
+                    server_state
+                        .config()
+                        .client_connection_tcp_keepalive_time()
+                        .ok_or(AgentError::Unknown(
+                            "Client connection tcp keepalive time not given.".to_string(),
+                        ))?,
                 ))
                 .with_interval(Duration::from_secs(
-                    *server_state
+                    server_state
                         .config()
-                        .client_connection_tcp_keepalive_interval(),
+                        .client_connection_tcp_keepalive_interval()
+                        .ok_or(AgentError::Unknown(
+                            "Client connection tcp keepalive interval not given.".to_string(),
+                        ))?,
                 ));
             #[cfg(target_os = "linux")]
             let keepalive = keepalive.with_retries(

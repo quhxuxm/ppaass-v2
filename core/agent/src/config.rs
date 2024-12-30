@@ -20,9 +20,9 @@ pub struct Config {
     #[access(get)]
     client_connection_tcp_keepalive: bool,
     #[access(get)]
-    client_connection_tcp_keepalive_interval: u64,
+    client_connection_tcp_keepalive_interval: Option<u64>,
     #[access(get)]
-    client_connection_tcp_keepalive_time: u64,
+    client_connection_tcp_keepalive_time: Option<u64>,
     #[access(get)]
     client_connection_read_timeout: Option<u64>,
     #[access(get)]
@@ -78,8 +78,8 @@ impl Default for Config {
             max_log_level: "INFO".to_string(),
             rsa_dir: PathBuf::from("/resources/agent/rsa"),
             client_connection_tcp_keepalive: false,
-            client_connection_tcp_keepalive_interval: 75,
-            client_connection_tcp_keepalive_time: 7200,
+            client_connection_tcp_keepalive_interval: Some(75),
+            client_connection_tcp_keepalive_time: Some(7200),
             server_socket_backlog: 1024,
             client_relay_buffer_size: 65536,
             proxy_relay_buffer_size: 65536,
