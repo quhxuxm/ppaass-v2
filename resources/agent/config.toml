@@ -33,3 +33,4 @@ proxy_connection_max_lifetime = 300
 proxy_connection_max_ping_pong_time = 10
 proxy_connection_ping_pong_read_timeout = 10
 proxy_connection_retake_interval = 1
+log_folder = "logs"

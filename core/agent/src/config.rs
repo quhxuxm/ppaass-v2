@@ -67,6 +67,8 @@ pub struct Config {
     proxy_connection_tcp_keepalive_interval: Option<u64>,
     #[access(get)]
     proxy_connection_tcp_keepalive_time: Option<u64>,
+    #[access(get)]
+    log_folder: PathBuf,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -103,6 +105,7 @@ impl Default for Config {
             proxy_connection_ping_pong_read_timeout: 10,
             proxy_connection_retake_interval: 5,
             client_socket_send_buffer_size: None,
+            log_folder: PathBuf::from("/logs"),
         }
     }
 }

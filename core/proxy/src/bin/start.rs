@@ -9,9 +9,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::runtime::Builder;
 use tracing::{error, info, Level};
+use tracing_subscriber::fmt::time::ChronoUtc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
+const LOG_FILE_NAME_PREFIX: &str = "ppaass-v2-proxy.log";
 pub fn main() -> Result<()> {
     let command = CommandArgs::parse();
     let config_file_path = command
@@ -19,9 +21,20 @@ pub fn main() -> Result<()> {
         .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILE));
     let config_file_content = read_to_string(config_file_path)?;
     let config = Arc::new(toml::from_str::<Config>(&config_file_content)?);
+    let (trace_file_appender, _trace_appender_guard) = tracing_appender::non_blocking(
+        tracing_appender::rolling::daily(config.log_folder(), LOG_FILE_NAME_PREFIX),
+    );
     tracing_subscriber::fmt()
         .with_max_level(Level::from_str(config.max_log_level())?)
+        .with_writer(trace_file_appender)
+        .with_line_number(true)
+        .with_level(true)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_timer(ChronoUtc::rfc_3339())
+        .with_ansi(false)
         .init();
+
     let runtime = Builder::new_multi_thread()
         .worker_threads(*config.worker_threads())
         .enable_all()

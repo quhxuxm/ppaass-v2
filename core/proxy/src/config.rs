@@ -55,6 +55,8 @@ pub struct Config {
     forward_server_addresses: Option<Vec<String>>,
     #[access(get)]
     forward_auth_token: Option<String>,
+    #[access(get)]
+    log_folder: PathBuf,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -85,6 +87,7 @@ impl Default for Config {
             dst_tcp_keepalive_retry: 9,
             forward_server_addresses: Some(vec!["127.0.0.1".to_string()]),
             forward_auth_token: None,
+            log_folder: PathBuf::from("/logs"),
         }
     }
 }

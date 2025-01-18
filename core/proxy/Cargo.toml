@@ -29,7 +29,7 @@ accessory = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tracing", "parking_lot", "rt", "sync"] }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["chrono"] }
 bytes = { workspace = true }
 derive_builder = { workspace = true }
 anyhow = { workspace = true }
@@ -40,3 +40,4 @@ tokio-util = { workspace = true, features = ["codec"] }
 chrono = { workspace = true }
 socket2 = { workspace = true, features = ["all"] }
 rand = { workspace = true }
+tracing-appender = { workspace = true }
