@@ -96,7 +96,7 @@ pub async fn start_relay(
                 destination_tcp_framed,
                 destination_address,
             )
-                .await
+            .await
         }
         RelayStartRequest::Udp { .. } => {
             unimplemented!("Udp relay is not implemented yet")
