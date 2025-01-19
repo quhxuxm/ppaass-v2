@@ -15,7 +15,7 @@ const LOG_FILE_NAME_PREFIX: &str = "ppaass-v2-agent.log";
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-const DEFAULT_CONFIG_FILE: &str = "config.toml.toml";
+const DEFAULT_CONFIG_FILE: &str = "config.toml";
 pub fn main() -> Result<()> {
     let command = CommandArgs::parse();
     let config_file_path = command
