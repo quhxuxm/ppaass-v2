@@ -11,6 +11,8 @@ pub struct Config {
     proxy_addresses: Vec<String>,
     #[access(get)]
     worker_threads: usize,
+    #[access(get)]
+    worker_thread_keep_alive: u64,
     #[access(get(ty(&std::path::Path)))]
     rsa_dir: PathBuf,
     #[access(get(ty(&str)))]
@@ -109,6 +111,7 @@ impl Default for Config {
             client_socket_send_buffer_size: None,
             log_folder: PathBuf::from("/logs"),
             server_event_max_size: u32::MAX as usize,
+            worker_thread_keep_alive: 10,
         }
     }
 }

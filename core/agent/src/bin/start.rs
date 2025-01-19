@@ -7,6 +7,7 @@ use ppaass_common::init_logger;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::runtime::Builder;
 use tracing::{error, info};
 const LOG_FILE_NAME_PREFIX: &str = "ppaass-v2-agent.log";
@@ -28,6 +29,7 @@ pub fn main() -> Result<()> {
     )?;
     let runtime = Builder::new_multi_thread()
         .worker_threads(*config.worker_threads())
+        .thread_keep_alive(Duration::from_secs(*config.worker_thread_keep_alive()))
         .enable_all()
         .build()?;
     runtime.block_on(async {
