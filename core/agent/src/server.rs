@@ -126,7 +126,8 @@ impl AgentServer {
         }
     }
     pub async fn start(self) -> Result<Receiver<AgentServerEvent>, AgentError> {
-        let (server_event_tx, server_event_rx) = channel::<AgentServerEvent>(1024);
+        let (server_event_tx, server_event_rx) =
+            channel::<AgentServerEvent>(*self.server_state.config().server_event_max_size());
         {
             let server_event_tx = server_event_tx.clone();
             let server_state = self.server_state.clone();

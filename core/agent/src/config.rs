@@ -69,6 +69,8 @@ pub struct Config {
     proxy_connection_tcp_keepalive_time: Option<u64>,
     #[access(get)]
     log_folder: PathBuf,
+    #[access(get)]
+    server_event_max_size: usize,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -106,6 +108,7 @@ impl Default for Config {
             proxy_connection_retake_interval: 5,
             client_socket_send_buffer_size: None,
             log_folder: PathBuf::from("/logs"),
+            server_event_max_size: u32::MAX as usize,
         }
     }
 }
