@@ -1,11 +1,10 @@
-use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::{ServerState, ServerStateBuilder};
 use crate::codec::ControlPacketCodec;
 use crate::config::Config;
 use crate::crypto::ProxyRsaCryptoHolder;
 use crate::error::ProxyError;
+use crate::handler;
 use crate::handler::{RelayStartRequest, TunnelInitResult};
-use crate::{handler, publish_server_event};
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use ppaass_domain::heartbeat::HeartbeatPong;
@@ -15,7 +14,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::{channel, Receiver};
+use tokio::task::JoinHandle;
 use tokio_util::codec::Framed;
 use tracing::{debug, error};
 const USER_AGENT_PUBLIC_KEY: &str = "AgentPublicKey.pem";
@@ -26,8 +25,7 @@ pub struct ProxyServer {
     server_state: ServerState,
 }
 impl ProxyServer {
-    pub fn new(config: Arc<Config>) -> Result<(Self, Receiver<ProxyServerEvent>), ProxyError> {
-        let (server_event_tx, server_event_rx) = channel::<ProxyServerEvent>(1024);
+    pub fn new(config: Arc<Config>) -> Result<Self, ProxyError> {
         let mut server_state_builder = ServerStateBuilder::default();
         let mut server_state_builder = server_state_builder
             .config(config.clone())
@@ -44,13 +42,10 @@ impl ProxyServer {
                     FORWARD_AGENT_PRIVATE_KEY.to_owned(),
                 )?))
         }
-        server_state_builder.server_event_tx(Arc::new(server_event_tx));
-        Ok((
-            Self {
-                server_state: server_state_builder.build()?,
-            },
-            server_event_rx,
-        ))
+
+        Ok(Self {
+            server_state: server_state_builder.build()?,
+        })
     }
     fn spawn_agent_task(
         agent_tcp_stream: TcpStream,
@@ -221,26 +216,13 @@ impl ProxyServer {
             Self::spawn_agent_task(agent_tcp_stream, agent_socket_addr, server_state.clone());
         }
     }
-    pub async fn start(
-        &self,
-        server_event_rx: Receiver<ProxyServerEvent>,
-    ) -> Result<Receiver<ProxyServerEvent>, ProxyError> {
-        {
-            let server_state = self.server_state.clone();
-            let server_event_tx_clone = server_state.server_event_tx().clone();
-            tokio::spawn(async move {
-                if let Err(e) = Self::concrete_start_server(server_state).await {
-                    publish_server_event(&server_event_tx_clone, ProxyServerEvent::ServerStartFail)
-                        .await;
-                    error!("Fail to start server: {e:?}")
-                }
-            });
-        }
-        publish_server_event(
-            self.server_state.server_event_tx(),
-            ProxyServerEvent::ServerStartup,
-        )
-        .await;
-        Ok(server_event_rx)
+    pub async fn start(&self) -> Result<JoinHandle<()>, ProxyError> {
+        let server_state = self.server_state.clone();
+        let handler = tokio::spawn(async move {
+            if let Err(e) = Self::concrete_start_server(server_state).await {
+                error!("Fail to start server: {e:?}")
+            }
+        });
+        Ok(handler)
     }
 }

@@ -8,7 +8,7 @@ use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::runtime::Builder;
-use tracing::{error, info};
+use tracing::error;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
@@ -31,22 +31,22 @@ pub fn main() -> Result<()> {
         .enable_all()
         .build()?;
     runtime.block_on(async {
-        let (server, server_event_rx) = match ProxyServer::new(config) {
+        let server = match ProxyServer::new(config) {
             Ok(server) => server,
             Err(e) => {
                 error!("Failed to build server object: {}", e);
                 return;
             }
         };
-        let mut server_event_rx = match server.start(server_event_rx).await {
-            Ok(server_event_rx) => server_event_rx,
+        let guard = match server.start().await {
+            Ok(guard) => guard,
             Err(e) => {
                 error!("Failed to start server: {}", e);
                 return;
             }
         };
-        while let Some(server_event) = server_event_rx.recv().await {
-            info!("Server event received: {:?}", server_event);
+        if let Err(e) = guard.await {
+            error!("Failed to run server: {}", e);
         }
     });
     Ok(())

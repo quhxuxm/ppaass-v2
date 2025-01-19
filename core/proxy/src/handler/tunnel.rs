@@ -1,9 +1,7 @@
-use crate::bo::event::ProxyServerEvent;
 use crate::bo::state::ServerState;
 use crate::codec::ControlPacketCodec;
 use crate::destination::{new_tcp_destination, new_udp_destination, DestinationDataTcpCodec};
 use crate::error::ProxyError;
-use crate::publish_server_event;
 use futures_util::SinkExt;
 use ppaass_crypto::random_32_bytes;
 use ppaass_domain::address::UnifiedAddress;
@@ -44,11 +42,7 @@ pub async fn tunnel_init(
             let destination_tcp_framed =
                 new_tcp_destination(&dst_address, *keepalive, server_state.clone()).await?;
             let proxy_encryption = Encryption::Aes(random_32_bytes());
-            publish_server_event(
-                server_state.server_event_tx(),
-                ProxyServerEvent::TunnelInit(dst_address.clone()),
-            )
-            .await;
+
             let tunnel_init_response = TunnelInitResponse {
                 proxy_encryption: proxy_encryption.clone(),
             };
@@ -71,11 +65,6 @@ pub async fn tunnel_init(
             let destination_udp_socket =
                 new_udp_destination(&dst_address, server_state.clone()).await?;
             let proxy_encryption = Encryption::Aes(random_32_bytes());
-            publish_server_event(
-                server_state.server_event_tx(),
-                ProxyServerEvent::TunnelInit(dst_address.clone()),
-            )
-            .await;
             let tunnel_init_response = TunnelInitResponse {
                 proxy_encryption: proxy_encryption.clone(),
             };
