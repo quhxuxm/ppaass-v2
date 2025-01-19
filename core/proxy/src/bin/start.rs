@@ -6,11 +6,9 @@ use proxy::config::Config;
 use proxy::server::ProxyServer;
 use std::fs::read_to_string;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::runtime::Builder;
-use tracing::{error, info, Level};
-use tracing_subscriber::fmt::time::ChronoUtc;
+use tracing::{error, info};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 const DEFAULT_CONFIG_FILE: &str = "config.toml";

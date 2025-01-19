@@ -6,12 +6,9 @@ use clap::Parser;
 use ppaass_common::init_logger;
 use std::fs::read_to_string;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::runtime::Builder;
-use tracing::Level;
 use tracing::{error, info};
-use tracing_subscriber::fmt::time::ChronoUtc;
 const LOG_FILE_NAME_PREFIX: &str = "ppaass-v2-agent.log";
 
 #[global_allocator]
