@@ -32,7 +32,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "tracing", "parking_lot", "rt", "sync"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["chrono"] }
 tokio-util = { workspace = true, features = ["codec"] }
 bytes = { workspace = true }
 derive_builder = { workspace = true }
@@ -47,4 +46,3 @@ socket2 = { workspace = true, features = ["all"] }
 rand = { workspace = true }
 concurrent-queue = { workspace = true }
 pretty-hex = { workspace = true }
-tracing-appender = { workspace = true }
