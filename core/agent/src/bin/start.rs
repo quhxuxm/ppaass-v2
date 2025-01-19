@@ -3,6 +3,7 @@ use agent::config::Config;
 use agent::server::AgentServer;
 use anyhow::Result;
 use clap::Parser;
+use ppaass_common::init_logger;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -23,20 +24,11 @@ pub fn main() -> Result<()> {
         .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILE));
     let config_file_content = read_to_string(config_file_path)?;
     let config = Arc::new(toml::from_str::<Config>(&config_file_content)?);
-
-    let (trace_file_appender, _trace_appender_guard) = tracing_appender::non_blocking(
-        tracing_appender::rolling::daily(config.log_folder(), LOG_FILE_NAME_PREFIX),
-    );
-    tracing_subscriber::fmt()
-        .with_max_level(Level::from_str(config.max_log_level())?)
-        .with_writer(trace_file_appender)
-        .with_line_number(true)
-        .with_level(true)
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .with_timer(ChronoUtc::rfc_3339())
-        .with_ansi(false)
-        .init();
+    let _trace_append_guard = init_logger(
+        config.log_folder(),
+        LOG_FILE_NAME_PREFIX,
+        config.max_log_level(),
+    )?;
     let runtime = Builder::new_multi_thread()
         .worker_threads(*config.worker_threads())
         .enable_all()

@@ -1,5 +1,5 @@
 [workspace]
-members = ["agent", "codec", "crypto", "domain", "proxy"]
+members = ["agent", "codec", "common", "crypto", "domain", "proxy"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -30,7 +30,6 @@ futures = "0"
 uuid = "1"
 httpcodec = "0"
 bytecodec = "0"
-tokio-io-timeout = "1.2.0"
 mimalloc = "0"
 url = "2"
 socket2 = "0"

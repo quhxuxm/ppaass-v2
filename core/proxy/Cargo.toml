@@ -21,6 +21,7 @@ lto = "fat"
 ppaass-domain = { path = "../domain", package = "domain" }
 ppaass-crypto = { path = "../crypto", package = "crypto" }
 ppaass-codec = { path = "../codec", package = "codec" }
+ppaass-common = { path = "../common", package = "common" }
 futures = { workspace = true }
 futures-util = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
