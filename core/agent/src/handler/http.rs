@@ -10,7 +10,6 @@ use httpcodec::{
     RequestEncoder, Response, ResponseEncoder, StatusCode,
 };
 use ppaass_domain::address::UnifiedAddress;
-use pretty_hex::pretty_hex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tracing::{debug, error};
