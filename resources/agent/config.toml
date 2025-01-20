@@ -1,6 +1,7 @@
 port = 10090
 auth_token = "user1"
 worker_threads = 256
+worker_thread_keep_alive = 5
 rsa_dir = "resources/agent/rsa"
 #proxy_addresses = ["64.176.10.101:80"]
 #proxy_addresses = ["45.76.0.10:80"]
