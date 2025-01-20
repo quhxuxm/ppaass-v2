@@ -69,7 +69,6 @@ pub async fn handle_http_client_tcp_stream(
         proxy_request.header_mut().add_field(header_field);
     });
 
-    println!("Receive http request:\n{}", pretty_hex(&request_decode_buf));
     let request_method = proxy_request.method().to_string();
     let (destination_address, initial_http_request_bytes) =
         if request_method.to_lowercase() == CONNECT_METHOD {
