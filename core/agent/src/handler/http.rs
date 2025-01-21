@@ -53,8 +53,14 @@ pub async fn handle_http_client_tcp_stream(
         client_http_version,
         client_body,
     );
+    let mut connection_keep_alive = false;
     client_request_header_fields.for_each(|header_field| {
         if header_field.name().eq_ignore_ascii_case("Proxy-Connection") {
+            // if header_field.value() == "keep-alive" {
+            //     connection_keep_alive = true;
+            // } else {
+            //     connection_keep_alive = false;
+            // }
             let connection_field = match HeaderField::new("Connection", header_field.value()) {
                 Ok(connection_field) => connection_field,
                 Err(e) => {
@@ -69,44 +75,44 @@ pub async fn handle_http_client_tcp_stream(
     });
 
     let request_method = proxy_request.method().to_string();
-    let (destination_address, initial_http_request_bytes) =
-        if request_method.to_lowercase() == CONNECT_METHOD {
-            let request_target = proxy_request.request_target();
-            let request_url = Url::parse(format!("https://{}", request_target.as_str()).as_str())?;
-            debug!("Receive https request: {}", request_url);
-            //HTTPS request with proxy
-            (
-                UnifiedAddress::Domain {
-                    host: request_url
-                        .host_str()
-                        .ok_or(AgentError::UnknownHostFromTargetUrl(
-                            request_url.to_string(),
-                        ))?
-                        .to_string(),
-                    port: request_url.port().unwrap_or(HTTPS_PORT),
-                },
-                None,
-            )
-        } else {
-            //HTTP request with proxy
-            let request_target = proxy_request.request_target();
-            let request_url = Url::parse(request_target.as_str())?;
-            let mut http_data_encoder = RequestEncoder::<BodyEncoder<BytesEncoder>>::default();
-            let initial_http_request_bytes: Bytes =
-                http_data_encoder.encode_into_bytes(proxy_request)?.into();
-            (
-                UnifiedAddress::Domain {
-                    host: request_url
-                        .host_str()
-                        .ok_or(AgentError::UnknownHostFromTargetUrl(
-                            request_url.to_string(),
-                        ))?
-                        .to_string(),
-                    port: request_url.port().unwrap_or(HTTP_PORT),
-                },
-                Some(initial_http_request_bytes),
-            )
-        };
+    let (destination_address, init_data) = if request_method.to_lowercase() == CONNECT_METHOD {
+        let request_target = proxy_request.request_target();
+        let request_url = Url::parse(format!("https://{}", request_target.as_str()).as_str())?;
+        connection_keep_alive = true;
+        debug!("Receive https request: {}", request_url);
+        //HTTPS request with proxy
+        (
+            UnifiedAddress::Domain {
+                host: request_url
+                    .host_str()
+                    .ok_or(AgentError::UnknownHostFromTargetUrl(
+                        request_url.to_string(),
+                    ))?
+                    .to_string(),
+                port: request_url.port().unwrap_or(HTTPS_PORT),
+            },
+            None,
+        )
+    } else {
+        //HTTP request with proxy
+        let request_target = proxy_request.request_target();
+        let request_url = Url::parse(request_target.as_str())?;
+        let mut http_data_encoder = RequestEncoder::<BodyEncoder<BytesEncoder>>::default();
+        let initial_http_request_bytes: Bytes =
+            http_data_encoder.encode_into_bytes(proxy_request)?.into();
+        (
+            UnifiedAddress::Domain {
+                host: request_url
+                    .host_str()
+                    .ok_or(AgentError::UnknownHostFromTargetUrl(
+                        request_url.to_string(),
+                    ))?
+                    .to_string(),
+                port: request_url.port().unwrap_or(HTTP_PORT),
+            },
+            Some(initial_http_request_bytes),
+        )
+    };
     debug!(
         "HTTP proxy begin connect to remote: {}",
         destination_address
@@ -116,12 +122,17 @@ pub async fn handle_http_client_tcp_stream(
         agent_encryption,
         proxy_encryption,
         destination_address,
-    } = tunnel_init(destination_address, server_state.clone()).await?;
+    } = tunnel_init(
+        destination_address,
+        server_state.clone(),
+        connection_keep_alive,
+    )
+    .await?;
     debug!(
         "HTTP proxy connect to remote success: {}",
         destination_address
     );
-    if initial_http_request_bytes.is_none() {
+    if init_data.is_none() {
         //For https proxy
         let http_connect_success_response = Response::new(
             HttpVersion::V1_1,
@@ -142,7 +153,7 @@ pub async fn handle_http_client_tcp_stream(
             proxy_tcp_stream,
             agent_encryption,
             proxy_encryption,
-            init_data: initial_http_request_bytes,
+            init_data,
             destination_address,
         },
         server_state,

@@ -23,6 +23,7 @@ pub struct TunnelInitHandlerResponse {
 pub async fn tunnel_init(
     destination_address: UnifiedAddress,
     server_state: ServerState,
+    connection_keep_alive: bool,
 ) -> Result<TunnelInitHandlerResponse, AgentError> {
     let proxy_tcp_stream = server_state
         .proxy_connection_pool()
@@ -42,7 +43,7 @@ pub async fn tunnel_init(
             auth_token: server_state.config().auth_token().to_owned(),
             dst_address: destination_address.clone(),
             tunnel_type: TunnelType::Tcp {
-                keepalive: *server_state.config().proxy_connection_tcp_keepalive(),
+                keepalive: connection_keep_alive,
             },
         }))
         .await?;

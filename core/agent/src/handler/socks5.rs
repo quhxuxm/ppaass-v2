@@ -38,6 +38,7 @@ pub async fn handle_socks5_client_tcp_stream(
                     },
                 },
                 server_state.clone(),
+                true,
             )
             .await?;
             debug!("Socks5 client tunnel init success with remote: {proxy_tcp_stream:?}");
