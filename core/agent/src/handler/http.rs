@@ -17,6 +17,9 @@ use url::Url;
 const CONNECT_METHOD: &str = "connect";
 const OK_CODE: u16 = 200;
 const CONNECTION_ESTABLISHED: &str = "Connection Established";
+const PROXY_CONNECTION_HEADER_NAME: &str = "Proxy-Connection";
+const CONNECTION_HEADER_NAME: &str = "Connection";
+const KEEP_ALIVE_HEADER_VALUE: &str = "keep-alive";
 const HTTPS_PORT: u16 = 443;
 const HTTP_PORT: u16 = 80;
 const HTTP_REQUEST_BUF_LEN: usize = 512;
@@ -55,19 +58,23 @@ pub async fn handle_http_client_tcp_stream(
     );
     let mut connection_keep_alive = false;
     client_request_header_fields.for_each(|header_field| {
-        if header_field.name().eq_ignore_ascii_case("Proxy-Connection") {
-            // if header_field.value() == "keep-alive" {
-            //     connection_keep_alive = true;
-            // } else {
-            //     connection_keep_alive = false;
-            // }
-            let connection_field = match HeaderField::new("Connection", header_field.value()) {
-                Ok(connection_field) => connection_field,
-                Err(e) => {
-                    error!("Fail to add Connection field: {}", e);
-                    return;
-                }
-            };
+        if header_field
+            .name()
+            .eq_ignore_ascii_case(PROXY_CONNECTION_HEADER_NAME)
+        {
+            if header_field.value() == KEEP_ALIVE_HEADER_VALUE {
+                connection_keep_alive = true;
+            } else {
+                connection_keep_alive = false;
+            }
+            let connection_field =
+                match HeaderField::new(CONNECTION_HEADER_NAME, header_field.value()) {
+                    Ok(connection_field) => connection_field,
+                    Err(e) => {
+                        error!("Fail to add Connection field: {}", e);
+                        return;
+                    }
+                };
             proxy_request.header_mut().add_field(connection_field);
             return;
         }
